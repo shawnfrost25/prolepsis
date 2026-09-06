@@ -11,8 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkToken = `-- name: CheckToken :one
+SELECT users.id, users.role 
+FROM sessions 
+JOIN users ON users.id = sessions.user_id 
+WHERE sessions.token = $1 AND sessions.expires_at > now()
+`
+
+type CheckTokenRow struct {
+	ID   pgtype.UUID
+	Role UserRole
+}
+
+// We use the token to fetch the info about the user
+func (q *Queries) CheckToken(ctx context.Context, token string) (CheckTokenRow, error) {
+	row := q.db.QueryRow(ctx, checkToken, token)
+	var i CheckTokenRow
+	err := row.Scan(&i.ID, &i.Role)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :exec
-INSERT INTO session(token, created_at, expires_at)
+INSERT INTO sessions(token, created_at, expires_at)
 VALUES ($1, now(), now() + interval '60 days')
 `
 
@@ -23,11 +43,11 @@ func (q *Queries) CreateSession(ctx context.Context, token string) error {
 }
 
 const deleteSession = `-- name: DeleteSession :exec
-DELETE FROM session
+DELETE FROM sessions
 WHERE token = $1
 `
 
-// We simply delete the session from users whose token is expired or when they log out
+// We simply delete the sessions from users whose token is expired or when they log out
 func (q *Queries) DeleteSession(ctx context.Context, token string) error {
 	_, err := q.db.Exec(ctx, deleteSession, token)
 	return err
@@ -60,7 +80,7 @@ func (q *Queries) EmailForInfo(ctx context.Context, email string) (EmailForInfoR
 }
 
 const firstStepRegisterUser = `-- name: FirstStepRegisterUser :exec
-INSERT INTO pending_registrations(token, name, display_name, gender, birth_date, email, password_hash, created_at, expires_at)
+INSERT INTO pending_registrations(token, name, display_name, sex, birth_date, email, password_hash, created_at, expires_at)
 VALUES ($1::text, $2::text, $3::text, $4::text, $5::date, $6::text, $7::text, now(), now() + interval '5 minutes')
 `
 
@@ -68,7 +88,7 @@ type FirstStepRegisterUserParams struct {
 	Token        string
 	Name         string
 	DisplayName  string
-	Gender       string
+	Sex          string
 	BirthDate    pgtype.Date
 	Email        string
 	PasswordHash string
@@ -80,7 +100,7 @@ func (q *Queries) FirstStepRegisterUser(ctx context.Context, arg FirstStepRegist
 		arg.Token,
 		arg.Name,
 		arg.DisplayName,
-		arg.Gender,
+		arg.Sex,
 		arg.BirthDate,
 		arg.Email,
 		arg.PasswordHash,
@@ -89,7 +109,7 @@ func (q *Queries) FirstStepRegisterUser(ctx context.Context, arg FirstStepRegist
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT name, display_name, bio, gender, location, birth_date, email, role, created_at
+SELECT name, display_name, bio, sex, location, birth_date, email, role, created_at
 FROM users
 WHERE id = $1
 `
@@ -98,7 +118,7 @@ type GetUserByIDRow struct {
 	Name        string
 	DisplayName *string
 	Bio         *string
-	Gender      string
+	Sex         string
 	Location    *string
 	BirthDate   pgtype.Date
 	Email       string
@@ -114,7 +134,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 		&i.Name,
 		&i.DisplayName,
 		&i.Bio,
-		&i.Gender,
+		&i.Sex,
 		&i.Location,
 		&i.BirthDate,
 		&i.Email,
@@ -125,15 +145,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 }
 
 const secondStepRegisterUser = `-- name: SecondStepRegisterUser :one
-INSERT INTO users (name, display_name, gender, birth_date, email, password_hash, created_at)
+INSERT INTO users (name, display_name, sex, birth_date, email, password_hash, created_at)
 VALUES ($1::text, $2::text, $3, $4::timestamptz, $5::text, $6::text, now())
-RETURNING name, display_name, gender, birth_date, email, created_at
+RETURNING name, display_name, sex, birth_date, email, created_at
 `
 
 type SecondStepRegisterUserParams struct {
 	Name         string
 	DisplayName  string
-	Gender       string
+	Sex          string
 	BirthDate    pgtype.Timestamptz
 	Email        string
 	PasswordHash string
@@ -142,7 +162,7 @@ type SecondStepRegisterUserParams struct {
 type SecondStepRegisterUserRow struct {
 	Name        string
 	DisplayName *string
-	Gender      string
+	Sex         string
 	BirthDate   pgtype.Date
 	Email       string
 	CreatedAt   pgtype.Timestamptz
@@ -153,7 +173,7 @@ func (q *Queries) SecondStepRegisterUser(ctx context.Context, arg SecondStepRegi
 	row := q.db.QueryRow(ctx, secondStepRegisterUser,
 		arg.Name,
 		arg.DisplayName,
-		arg.Gender,
+		arg.Sex,
 		arg.BirthDate,
 		arg.Email,
 		arg.PasswordHash,
@@ -162,7 +182,7 @@ func (q *Queries) SecondStepRegisterUser(ctx context.Context, arg SecondStepRegi
 	err := row.Scan(
 		&i.Name,
 		&i.DisplayName,
-		&i.Gender,
+		&i.Sex,
 		&i.BirthDate,
 		&i.Email,
 		&i.CreatedAt,
@@ -171,12 +191,12 @@ func (q *Queries) SecondStepRegisterUser(ctx context.Context, arg SecondStepRegi
 }
 
 const updateSession = `-- name: UpdateSession :exec
-UPDATE session
+UPDATE sessions
 SET expires_at = now() + interval '60 days'
 WHERE token = $1 AND expires_at > now() AND expires_at < now() + interval '30 days'
 `
 
-// We update the session if the user is active (we won't like to expire the session of an active user, no?)
+// We update the sessions if the user is active (we won't like to expire the sessions of an active user, no?)
 // We update the token lifetime only if it's older than 30 days
 func (q *Queries) UpdateSession(ctx context.Context, token string) error {
 	_, err := q.db.Exec(ctx, updateSession, token)

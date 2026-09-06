@@ -57,7 +57,7 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 type PendingRegistration struct {
 	Token        string
 	Name         string
-	Gender       string
+	Sex          string
 	BirthDate    pgtype.Date
 	Email        string
 	PasswordHash string
@@ -78,7 +78,7 @@ type User struct {
 	Name         string
 	DisplayName  *string
 	Bio          *string
-	Gender       string
+	Sex          string
 	Location     *string
 	BirthDate    pgtype.Date
 	Email        string
