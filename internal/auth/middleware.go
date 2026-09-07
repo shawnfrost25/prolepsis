@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"net"
@@ -55,10 +56,13 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		rawToken := sha256.Sum256([]byte(parts[0]))
+		hashToken := hex.EncodeToString(rawToken[:])
+
 		timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
 		defer cancel()
 
-		user, err := queries.CheckToken(timeout, parts[1])
+		user, err := queries.CheckToken(timeout, hashToken)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				lib.Pretty(w, http.StatusUnauthorized, lib.Error{
@@ -83,7 +87,7 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		_ = queries.UpdateSession(timeout, parts[1])
+		_ = queries.UpdateSession(timeout, hashToken)
 
 		ctx := context.WithValue(r.Context(), idCtx, user.ID)
 		ctx = context.WithValue(ctx, roleCtx, user.Role)

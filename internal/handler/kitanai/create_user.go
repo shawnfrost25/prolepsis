@@ -1,0 +1,276 @@
+package kitanai
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/http"
+	"prolepsis/internal/auth"
+	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/lib"
+	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/rs/zerolog"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type RegisterUser struct {
+	Name      *string
+	Sex       *string
+	BirthDate *pgtype.Date
+	Email     *string
+	Password  *string
+}
+
+type RegisterResponse struct {
+	Name      string `json:"name"`
+	Sex       string
+	BirthDate pgtype.Date `json:"age"`
+	Email     string      `json:"email"`
+	Nonsense  string      `json:"password"`
+}
+
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var req RegisterUser
+	logger := zerolog.Ctx(r.Context()).With().Str("handler", "CreateUser").Logger()
+	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
+	if err != err {
+		logger.Warn().
+			Err(err).
+			Int("status", http.StatusBadRequest).
+			Str("cause", "invalid_decode_request").
+			Msg("couldn't decode request")
+		lib.Pretty(w, http.StatusBadRequest, lib.Error{
+			Code:    "BAD_REQUEST",
+			Message: "The given request is invalid. Failed to decode the request.",
+			Details: map[string]string{
+				"reason": "invalid request",
+				"fix":    "follow the recommendations and given format to successfully continue",
+			},
+		})
+		return
+	}
+
+	var missingFields []string
+	if req.Name == nil {
+		missingFields = append(missingFields, "name")
+	}
+	if req.Sex == nil {
+		missingFields = append(missingFields, "sex")
+	}
+	if req.Email == nil {
+		missingFields = append(missingFields, "email")
+	}
+	if req.BirthDate == nil {
+		missingFields = append(missingFields, "birth_date")
+	}
+	if req.Password == nil {
+		missingFields = append(missingFields, "password")
+	}
+	if len(missingFields) != 0 {
+		logger.Warn().
+			Int("status", http.StatusBadRequest).
+			Str("cause", "missing_required_arguments").
+			Interface("missing_fields", missingFields).
+			Msg("missing arguments inside the registrations")
+		lib.Pretty(w, http.StatusBadRequest, lib.Error{
+			Code:    "BAD_REQUEST",
+			Message: "The given payload has missing arguments",
+			Details: map[string]string{
+				"reason": "missing arguments",
+				"fix":    "please, don't forget to write all the required information and don't leave nothing blank",
+			},
+		})
+		return
+	}
+	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	defer cancel()
+
+	err = h.queries.DeleteWhereDone(timeout)
+	if errors.Is(err, pgconn.ErrConnClosed) {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusRequestTimeout).
+			Str("cause", "timeout").
+			Msg("timedout while searching for the user matching the id")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An error occurred while deleting the pending registration",
+			Details: map[string]string{
+				"reason": "database error",
+				"fix":    "Please try again later",
+			},
+		})
+		return
+	}
+
+	domain := "just_a_test.com"
+	appName := "Cruddy Inc."
+	userExists, err := h.queries.UserExists(timeout, *req.Email)
+	if err != nil {
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Msg("timedout while searching for the user matching the email")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while searching for matching email",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "database_registration_failed").
+			Str("email", *req.Email).
+			Msg("unexpected database error during email query")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An unexpected error occurred.",
+		})
+		return
+	}
+	place := lib.ExtractLocation(r)
+	device := lib.ExtractDevice(r)
+	if userExists {
+
+		subject := fmt.Sprintf("[%s] Security notice: Registration attempt", appName)
+		message := fmt.Sprintf(
+			"Hello,\n\n"+
+				"Someone recently attempted to create an account on %s using your email address.\n\n"+
+				"Details of the attempt:\n"+
+				"- Time: %s\n"+
+				"- Location: %s\n"+
+				"- Device: %s\n\n"+
+				"If this was you, you can safely ignore this email and sign in to your existing account.\n\n"+
+				"If you did not initiate this request, no action is required—your account remains secure.\n\n"+
+				"Best regards,\nThe %s Team",
+			domain,
+			time.Now().Format("January 2, 2006 at 3:04 PM MST"),
+			place,
+			device,
+			appName,
+		)
+
+		err = lib.SendEmail(logger, h.queries, h.mailer.FromEmail, h.mailer.AppPassword, *req.Email, subject, message)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_email_response").
+				Str("email", *req.Email).
+				Msg("could not deliver email notification")
+
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed to process request. Please try again later.",
+			})
+			return
+		}
+
+		logger.Info().
+			Int("status", http.StatusOK).
+			Str("email", *req.Email).
+			Msg("sent duplicate registration notification email")
+
+		lib.Pretty(w, http.StatusOK, map[string]string{
+			"message": "If an account exists for this email, we've sent instructions to your inbox.",
+		})
+		return
+	}
+
+	token, err := auth.CreateToken()
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_fetching_failed").
+			Str("email", *req.Email).
+			Msg("couldn't create token")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Unexpected error while creating the token",
+		})
+		return
+	}
+
+	subject := fmt.Sprintf("Verify your email for %s", appName)
+
+	message := fmt.Sprintf(
+		"Hello %s,\n\n"+
+			"Thank you for signing up for %s!\n\n"+
+			"This verification link will expire in 3 minutes. Please use this token: %v\n\n"+
+			"If you did not create an account, you can safely ignore this message.\n\n"+
+			"Best regards,\nThe %s Team",
+		*req.Name,
+		appName,
+		token,
+		appName,
+	)
+
+	err = lib.SendEmail(logger, h.queries, h.mailer.FromEmail, h.mailer.AppPassword, *req.Email, subject, message)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "failed_email_response").
+			Str("email", *req.Email).
+			Msg("couldn't send the email")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Something went wrong.. Couldn't send this email... Maybe it's for the best?",
+		})
+		return
+	}
+
+	hashBytes := sha256.Sum256([]byte(token))
+	hashToken := hex.EncodeToString(hashBytes[:])
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "failed_password_hashing").
+			Str("email", *req.Email).
+			Msg("error while hashing the password")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while trying to encrypt the given password",
+		})
+		return
+	}
+
+	h.queries.FirstStepRegisterUser(timeout, db.FirstStepRegisterUserParams{
+		Token:        hashToken,
+		Name:         *req.Name,
+		Sex:          *req.Sex,
+		BirthDate:    *req.BirthDate,
+		Email:        *req.Email,
+		PasswordHash: string(hashPassword),
+	})
+
+	logger.Info().
+		Int("status", http.StatusCreated).
+		Str("email", *req.Email).
+		Msg("successfully created user")
+
+	lib.Pretty(w, http.StatusCreated, RegisterResponse{
+		Name:      *req.Name,
+		Sex:       *req.Sex,
+		BirthDate: *req.BirthDate,
+		Email:     *req.Email,
+		Nonsense:  "yeah, buddy, even I don't see your password, so don't wish my beautiful function to return it!!! *Bites your ankles*",
+	})
+}

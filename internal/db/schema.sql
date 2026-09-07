@@ -44,7 +44,7 @@ CREATE TABLE sessions(
     expires_at TIMESTAMPTZ NOT NULL
 );
 -- We create an index (to search more easily), because FOREIGN KEY doesn't give this priveledge to automatically create one
-CREATE INDEX sessions_user_id_idx ON sessions (user_id);
+CREATE INDEX idx_sessions_user_id ON sessions (user_id);
 
 -- Creating a table to store the register_user data to verify_user  
 CREATE TABLE pending_registrations (
@@ -59,8 +59,22 @@ CREATE TABLE pending_registrations (
     CONSTRAINT pending_registrations_email_check CHECK (length(trim(email)) BETWEEN 6 AND 254 AND email ~* '^[a-z0-9._+-]{1,64}@([a-z0-9-]{1,63}\.)+([a-z0-9]{2,18})$'),
     password_hash TEXT NOT NULL,
     CONSTRAINT pending_registrations_password_hash_check CHECK (length(password_hash) >= 60),
-    attempts SMALLINT NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending',
     -- These two are here to check if the token is expired or not
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE INDEX idx_pending_registrations_email ON pending_registrations (email);
+
+-- We check if the email was already sent (one email per hour)
+-- Create a new table 'sent_emails' with a primary key and columns
+CREATE TABLE sent_emails (
+    to_email TEXT NOT NULL,
+    CONSTRAINT sent_emails_email_check CHECK (length(trim(to_email)) BETWEEN 6 AND 254 AND to_email ~* '^[a-z0-9._+-]{1,64}@([a-z0-9-]{1,63}\.)+([a-z0-9]{2,18})$'),
+    CONSTRAINT sent_emails_to_email_key UNIQUE (to_email),
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_sent_emails_cooldown ON sent_emails (to_email, expires_at);
