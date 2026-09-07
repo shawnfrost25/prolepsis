@@ -61,9 +61,15 @@ type PendingRegistration struct {
 	BirthDate    pgtype.Date
 	Email        string
 	PasswordHash string
-	Attempts     int16
+	Status       string
 	CreatedAt    pgtype.Timestamptz
 	ExpiresAt    pgtype.Timestamptz
+}
+
+type SentEmail struct {
+	ToEmail   string
+	SentAt    pgtype.Timestamptz
+	ExpiresAt pgtype.Timestamptz
 }
 
 type Session struct {

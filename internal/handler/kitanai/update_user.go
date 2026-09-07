@@ -63,7 +63,7 @@ func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Here it ends
+	// Here it ends if the request takes more than 250 milliseconds
 	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
 	defer cancel()
 
