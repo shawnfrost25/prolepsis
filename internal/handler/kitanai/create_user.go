@@ -38,8 +38,24 @@ type RegisterResponse struct {
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req RegisterUser
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "CreateUser").Logger()
+	trace, ok := auth.GetTrace(r.Context())
+	if !ok {
+		logger.Error().
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "missing_tracing_context").
+			Msg("handler invoked without trace ID in context")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An internal server error occurred",
+			Details: map[string]string{
+				"reason": "request context pipeline uninitialized",
+			},
+		})
+		return
+	}
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
-	if err != err {
+	if err != nil {
 		logger.Warn().
 			Err(err).
 			Int("status", http.StatusBadRequest).
@@ -52,6 +68,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				"reason": "invalid request",
 				"fix":    "follow the recommendations and given format to successfully continue",
 			},
+			TraceID: trace,
 		})
 		return
 	}
@@ -85,6 +102,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				"reason": "missing arguments",
 				"fix":    "please, don't forget to write all the required information and don't leave nothing blank",
 			},
+			TraceID: trace,
 		})
 		return
 	}
@@ -105,6 +123,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				"reason": "database error",
 				"fix":    "Please try again later",
 			},
+			TraceID: trace,
 		})
 		return
 	}
@@ -126,6 +145,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 					"reason": "database error",
 					"fix":    "Please try again later",
 				},
+				TraceID: trace,
 			})
 			return
 		}
@@ -139,6 +159,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "An unexpected error occurred.",
+			TraceID: trace,
 		})
 		return
 	}
@@ -176,6 +197,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
 				Message: "Failed to process request. Please try again later.",
+				TraceID: trace,
 			})
 			return
 		}
@@ -185,8 +207,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			Str("email", *req.Email).
 			Msg("sent duplicate registration notification email")
 
+		m := fmt.Sprintf("Verify your email for %s", appName)
 		lib.Pretty(w, http.StatusOK, map[string]string{
-			"message": "If an account exists for this email, we've sent instructions to your inbox.",
+			// Sending false success
+			"message": m,
 		})
 		return
 	}
@@ -202,6 +226,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Unexpected error while creating the token",
+			TraceID: trace,
 		})
 		return
 	}
@@ -231,6 +256,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Something went wrong.. Couldn't send this email... Maybe it's for the best?",
+			TraceID: trace,
 		})
 		return
 	}
@@ -248,6 +274,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Error while trying to encrypt the given password",
+			TraceID: trace,
 		})
 		return
 	}
