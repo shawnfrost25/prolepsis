@@ -134,6 +134,7 @@ func Logger_Middleware(next http.Handler) http.Handler {
 		//     ctx := context.WithValue(r.Context, zerologCtxKey, loggerReq)
 		// Why I pointed this out? No exact reason - just cute enough to nitpick around
 		ctx := loggerReq.WithContext(r.Context())
+		// We pass the trace here, because Logger is global (used by registration and login too)
 		ctx = context.WithValue(ctx, traceCtx, trace)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -157,7 +158,7 @@ func getRole(ctx context.Context) (db.UserRole, bool) {
 	return userRole, ok
 }
 
-func getTrace(ctx context.Context) (string, bool) {
+func GetTrace(ctx context.Context) (string, bool) {
 	userTrace, ok := ctx.Value(traceCtx).(string)
 	return userTrace, ok
 }
@@ -165,7 +166,7 @@ func getTrace(ctx context.Context) (string, bool) {
 // We delete redundancy by using a simple function
 func FetchContext(w http.ResponseWriter, r *http.Request) (RequestContext, bool) {
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "FetchContext").Logger()
-	trace, ok := getTrace(r.Context())
+	trace, ok := GetTrace(r.Context())
 	if !ok {
 		logger.Error().
 			Int("status", http.StatusInternalServerError).
