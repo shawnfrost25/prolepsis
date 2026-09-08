@@ -2,8 +2,6 @@ package kitanai
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
@@ -29,6 +27,22 @@ type VerificationResponse struct {
 func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	const maxAttempts = 5
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "VerifyRegistrations").Logger()
+	trace, ok := auth.GetTrace(r.Context())
+	if !ok {
+		logger.Error().
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "missing_tracing_context").
+			Msg("handler invoked without trace ID in context")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An internal server error occurred",
+			Details: map[string]string{
+				"reason": "request context pipeline uninitialized",
+			},
+		})
+		return
+	}
 
 	var req VerificationRequest
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
@@ -45,6 +59,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 				"reason": "invalid request",
 				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
 			},
+			TraceID: trace,
 		})
 		return
 	}
@@ -61,28 +76,14 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 				"reason": "missing token",
 				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
 			},
+			TraceID: trace,
 		})
 		return
 	}
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	token, err := auth.CreateToken()
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "token_fetching_failed").
-			Msg("couldn't create token")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unexpected error while creating the token",
-		})
-		return
-	}
-
-	hashBytes := sha256.Sum256([]byte(token))
-	hashToken := hex.EncodeToString(hashBytes[:])
+	hashToken := auth.HashToken(req.Token)
 
 	if len(hashToken) != 64 {
 		logger.Warn().
@@ -97,11 +98,12 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 				"reason": "malformed token",
 				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
 			},
+			TraceID: trace,
 		})
 		return
 	}
 
-	user, err := h.queries.FetchPendingRegistrationsInfo(timeout, hashToken)
+	user, err := h.Queries.FetchPendingRegistrationsInfo(timeout, hashToken)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().
@@ -117,6 +119,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 				Details: map[string]string{
 					"reason": "no rows in the database match the given token",
 				},
+				TraceID: trace,
 			})
 			return
 		}
@@ -134,6 +137,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 					"reason": "database error",
 					"fix":    "Please try again later",
 				},
+				TraceID: trace,
 			})
 			return
 		}
@@ -146,11 +150,12 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Database fetching failed",
+			TraceID: trace,
 		})
 		return
 	}
 
-	info, err := h.queries.SecondStepRegisterUser(timeout, db.SecondStepRegisterUserParams{
+	info, err := h.Queries.SecondStepRegisterUser(timeout, db.SecondStepRegisterUserParams{
 		Name:         user.Name,
 		DisplayName:  user.Name,
 		Sex:          user.Sex,
@@ -158,10 +163,41 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		PasswordHash: user.PasswordHash,
 	})
+	if err != nil {
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Str("input", hashToken).
+				Msg("timedout while inserting data to database")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while inserting data",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "failed_user_creation").
+			Msg("unexpected error while creating user")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to create user from pending registrations to users",
+			TraceID: trace,
+		})
+		return
+	}
 
-	h.queries.UpdatePendingStatus(timeout, hashToken)
+	h.Queries.UpdatePendingStatus(timeout, hashToken)
 
-	err = h.queries.DeleteWhereDone(timeout)
+	err = h.Queries.DeleteWhereDone(timeout)
 	if err != nil {
 		if errors.Is(err, pgconn.ErrConnClosed) {
 			logger.Error().
@@ -192,12 +228,28 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := auth.CreateToken()
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_fetching_failed").
+			Msg("couldn't create token")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Unexpected error while creating the token",
+			TraceID: trace,
+		})
+		return
+	}
+	hashToken = auth.HashToken(token)
+
 	logger.Info().
 		Int("status", http.StatusCreated).
 		Str("cause", "successfully_created_user").
 		Str("id", info.ID.String())
 
-	err = h.queries.CreateSession(timeout, db.CreateSessionParams{
+	err = h.Queries.CreateSession(timeout, db.CreateSessionParams{
 		UserID: info.ID,
 		Token:  hashToken,
 	})

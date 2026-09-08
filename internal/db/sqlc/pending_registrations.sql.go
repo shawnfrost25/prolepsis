@@ -13,12 +13,12 @@ import (
 
 const deleteRegistrationSteps = `-- name: DeleteRegistrationSteps :exec
 DELETE FROM pending_registrations
-WHERE token = $1
+WHERE email = $1
 `
 
 // We delete everything, cuz yes
-func (q *Queries) DeleteRegistrationSteps(ctx context.Context, token string) error {
-	_, err := q.db.Exec(ctx, deleteRegistrationSteps, token)
+func (q *Queries) DeleteRegistrationSteps(ctx context.Context, email string) error {
+	_, err := q.db.Exec(ctx, deleteRegistrationSteps, email)
 	return err
 }
 
@@ -31,6 +31,22 @@ WHERE status = 'created' OR now() > expires_at
 func (q *Queries) DeleteWhereDone(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteWhereDone)
 	return err
+}
+
+const existsInPendingRegistrations = `-- name: ExistsInPendingRegistrations :one
+SELECT EXISTS (
+    SELECT 1
+    FROM pending_registrations
+    WHERE email = $1 AND expires_at > now()
+)
+`
+
+// We check if the user exists inside pending_registrations, and if the token is even alright at this point
+func (q *Queries) ExistsInPendingRegistrations(ctx context.Context, email string) (bool, error) {
+	row := q.db.QueryRow(ctx, existsInPendingRegistrations, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const fetchPendingRegistrationsInfo = `-- name: FetchPendingRegistrationsInfo :one

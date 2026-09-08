@@ -106,10 +106,10 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	info, err := h.queries.EmailForInfo(timeout, req.Email)
+	info, err := h.Queries.EmailForInfo(timeout, req.Email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().
@@ -193,7 +193,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	hashBytes := sha256.Sum256([]byte(token))
 	hashToken := hex.EncodeToString(hashBytes[:])
 
-	h.queries.CreateSession(timeout, db.CreateSessionParams{
+	h.Queries.CreateSession(timeout, db.CreateSessionParams{
 		UserID: info.ID,
 		Token:  hashToken,
 	})

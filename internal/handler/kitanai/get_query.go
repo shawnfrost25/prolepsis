@@ -82,10 +82,10 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	rows, err := h.pool.Query(timeout, sqlCode, args...)
+	rows, err := h.Pool.Query(timeout, sqlCode, args...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().

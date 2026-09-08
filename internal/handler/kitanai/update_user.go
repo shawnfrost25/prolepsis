@@ -63,11 +63,10 @@ func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Here it ends if the request takes more than 250 milliseconds
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	err = h.queries.UpdateUserNotForced(timeout, db.UpdateUserNotForcedParams{
+	err = h.Queries.UpdateUserNotForced(timeout, db.UpdateUserNotForcedParams{
 		DisplayName: req.DisplayName,
 		Bio:         req.Bio,
 		Location:    req.Location,

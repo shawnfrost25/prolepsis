@@ -31,7 +31,7 @@ VALUES ($1, now(), now() + interval '20 hours') ON CONFLICT (to_email) DO UPDATE
 SET sent_at = EXCLUDED.sent_at, expires_at = EXCLUDED.expires_at
 `
 
-// We save the one to who we sent the email, so we place a timeout - so nobody will flood other's email for no reaso
+// We save the one to who we sent the email, so we place a timeout - so nobody will flood other's email for no reason
 func (q *Queries) InsertEmailCooldown(ctx context.Context, toEmail string) error {
 	_, err := q.db.Exec(ctx, insertEmailCooldown, toEmail)
 	return err

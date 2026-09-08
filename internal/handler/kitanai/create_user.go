@@ -2,8 +2,6 @@ package kitanai
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,16 +18,16 @@ import (
 )
 
 type RegisterUser struct {
-	Name      *string
-	Sex       *string
-	BirthDate *pgtype.Date
-	Email     *string
-	Password  *string
+	Name      *string      `json:"name"`
+	Sex       *string      `json:"sex"`
+	BirthDate *pgtype.Date `json:"birth_date"`
+	Email     *string      `json:"email"`
+	Password  *string      `json:"password"`
 }
 
 type RegisterResponse struct {
-	Name      string `json:"name"`
-	Sex       string
+	Name      string      `json:"name"`
+	Sex       string      `json:"sex"`
 	BirthDate pgtype.Date `json:"age"`
 	Email     string      `json:"email"`
 	Nonsense  string      `json:"password"`
@@ -106,10 +104,13 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	err = h.queries.DeleteWhereDone(timeout)
+	emailTimeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	err = h.Queries.DeleteWhereDone(timeout)
 	if errors.Is(err, pgconn.ErrConnClosed) {
 		logger.Error().
 			Err(err).
@@ -130,7 +131,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	domain := "just_a_test.com"
 	appName := "Cruddy Inc."
-	userExists, err := h.queries.UserExists(timeout, *req.Email)
+	standardResponse := map[string]string{
+		"message": fmt.Sprintf("If the provided information is valid, a verification token has been sent for %s.", appName),
+	}
+	userExists, err := h.Queries.UserExists(timeout, *req.Email)
 	if err != nil {
 		if errors.Is(err, pgconn.ErrConnClosed) {
 			logger.Error().
@@ -185,18 +189,18 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			appName,
 		)
 
-		err = lib.SendEmail(logger, h.queries, h.mailer.FromEmail, h.mailer.AppPassword, *req.Email, subject, message)
+		err = lib.SendLimitedEmail(emailTimeout, logger, h.Queries, h.Mailer.ApiKey, *req.Email, subject, message)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Int("status", http.StatusInternalServerError).
 				Str("cause", "failed_email_response").
 				Str("email", *req.Email).
-				Msg("could not deliver email notification")
+				Msg("could not deliver email notification, rate limited, email exists")
 
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Failed to process request. Please try again later.",
+				Message: "Check the inboxes of the provided email for the given token",
 				TraceID: trace,
 			})
 			return
@@ -207,11 +211,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			Str("email", *req.Email).
 			Msg("sent duplicate registration notification email")
 
-		m := fmt.Sprintf("Verify your email for %s", appName)
-		lib.Pretty(w, http.StatusOK, map[string]string{
-			// Sending false success
-			"message": m,
-		})
+		lib.Pretty(w, http.StatusOK, standardResponse)
 		return
 	}
 
@@ -245,24 +245,72 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		appName,
 	)
 
-	err = lib.SendEmail(logger, h.queries, h.mailer.FromEmail, h.mailer.AppPassword, *req.Email, subject, message)
+	exists, err := h.Queries.ExistsInPendingRegistrations(timeout, *req.Email)
+	if err != nil {
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Msg("timedout while searching for the user matching the email")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while searching for matching email",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "database_registration_failed").
+			Str("email", *req.Email).
+			Msg("unexpected database error during email query")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An unexpected error occurred.",
+			TraceID: trace,
+		})
+		return
+	}
+
+	if exists {
+		if exists {
+			logger.Warn().
+				Int("status", http.StatusOK).
+				Str("cause", "healthy_token").
+				Msg("active pending registration exists, returning standard response")
+
+			lib.Pretty(w, http.StatusOK, standardResponse)
+			return
+		}
+	} else {
+		h.Queries.DeleteRegistrationSteps(timeout, *req.Email)
+	}
+
+	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 	if err != nil {
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
 			Str("cause", "failed_email_response").
 			Str("email", *req.Email).
-			Msg("couldn't send the email")
+			Msg("could not deliver email notification")
+
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Something went wrong.. Couldn't send this email... Maybe it's for the best?",
+			Message: "Failed to process request. Please try again later.",
 			TraceID: trace,
 		})
 		return
 	}
 
-	hashBytes := sha256.Sum256([]byte(token))
-	hashToken := hex.EncodeToString(hashBytes[:])
+	hashToken := auth.HashToken(token)
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Error().
@@ -279,7 +327,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.queries.FirstStepRegisterUser(timeout, db.FirstStepRegisterUserParams{
+	err = h.Queries.FirstStepRegisterUser(timeout, db.FirstStepRegisterUserParams{
 		Token:        hashToken,
 		Name:         *req.Name,
 		Sex:          *req.Sex,
@@ -288,16 +336,24 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(hashPassword),
 	})
 
-	logger.Info().
-		Int("status", http.StatusCreated).
-		Str("email", *req.Email).
-		Msg("successfully created user")
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusRequestTimeout).
+			Str("cause", "timeout").
+			Msg("timedout while trying to insert user inside pending_registrations")
+		lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+			Code:    "REQUEST_TIMEOUT",
+			Message: "Timeout while inserting inside database",
+			TraceID: trace,
+		})
+		return
+	}
 
-	lib.Pretty(w, http.StatusCreated, RegisterResponse{
-		Name:      *req.Name,
-		Sex:       *req.Sex,
-		BirthDate: *req.BirthDate,
-		Email:     *req.Email,
-		Nonsense:  "yeah, buddy, even I don't see your password, so don't wish my beautiful function to return it!!! *Bites your ankles*",
-	})
+	logger.Info().
+		Int("status", http.StatusOK).
+		Str("email", *req.Email).
+		Msg("successfully created pending user registration")
+
+	lib.Pretty(w, http.StatusOK, standardResponse)
 }
