@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
 
@@ -22,9 +23,9 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := chi.URLParam(r, "id")
+	idRaw := chi.URLParam(r, "id")
 
-	if id == "" {
+	if idRaw == "" {
 		logger.Warn().
 			Int("status", http.StatusBadRequest).
 			Str("cause", "missing_id_parameter").
@@ -42,17 +43,37 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var id pgtype.UUID
+	err := id.Scan(idRaw)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "failed_id_parsing").
+			Str("input", idRaw).
+			Msg("failed to turn string id into an uuid")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Couldn't successfully parse the given id",
+			Details: map[string]string{
+				"reason": "invalid given id",
+				"fix":    "please, check the token to be right, or send trace",
+			},
+			TraceID: u.Trace,
+		})
+	}
+
 	timeout, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
 
-	info, err := h.Queries.GetUserByID(timeout, u.ID)
+	info, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().
 				Err(err).
 				Int("status", http.StatusNotFound).
 				Str("cause", "user_id_not_found").
-				Str("input", id).
+				Interface("input", id).
 				Msg("user not found in database")
 
 			lib.Pretty(w, http.StatusNotFound, lib.Error{
@@ -70,7 +91,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 				Err(err).
 				Int("status", http.StatusRequestTimeout).
 				Str("cause", "timeout").
-				Str("input", id).
+				Interface("input", id).
 				Msg("timedout while searching for the user matching the id")
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
@@ -87,7 +108,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			Err(err).
 			Int("status", http.StatusInternalServerError).
 			Str("cause", "unrecognized").
-			Str("input", id).
+			Interface("input", id).
 			Msg("unexptected error while matching the ID through the database")
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",

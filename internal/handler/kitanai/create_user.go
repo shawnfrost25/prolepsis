@@ -198,8 +198,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				Str("email", *req.Email).
 				Msg("could not deliver email notification, rate limited, email exists")
 
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
+			lib.Pretty(w, http.StatusOK, lib.Error{
+				Code:    "OK",
 				Message: "Check the inboxes of the provided email for the given token",
 				TraceID: trace,
 			})

@@ -122,7 +122,7 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 	var result []User
 	for rows.Next() {
 		var us User
-		err := rows.Scan(&us.Name, &us.DisplayName, &us.Bio, &us.Sex, &us.Location, &us.BirthDate, &us.Email, &us.Role, &us.CreatedAt)
+		err := rows.Scan(&us.ID, &us.Name, &us.DisplayName, &us.Bio, &us.Sex, &us.Location, &us.BirthDate, &us.Email, &us.Role, &us.CreatedAt)
 		if err != nil {
 			logger.Error().
 				Err(err).
@@ -156,6 +156,23 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Error reading database rows",
+			TraceID: u.Trace,
+		})
+		return
+	}
+
+	if len(result) == 0 {
+		logger.Warn().
+			Int("status", http.StatusNotFound).
+			Str("cause", "user_query_not_found").
+			Msg("no user matches the given query")
+		lib.Pretty(w, http.StatusNotFound, lib.Error{
+			Code:    "BAD_REQUEST",
+			Message: "No user matches the given query",
+			Details: map[string]string{
+				"reason": "invalid request",
+				"fix":    "send a query that matches at least an user",
+			},
 			TraceID: u.Trace,
 		})
 		return

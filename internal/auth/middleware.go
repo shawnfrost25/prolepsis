@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"net"
@@ -26,6 +25,15 @@ const idCtx contextKey = "userID"
 const roleCtx contextKey = "userRole"
 
 var queries *db.Queries
+
+// Workflow without this function:
+// We delcare 'queries' (a placeholder) -> function starts for real -> no value given to 'queries' -> defaults to 'nil' (because it has a pointer, it's '*db.Queries')
+
+// Workflow with this function:
+// We delcare 'queries' (a placeholder) -> we use this function to give it a value -> it has a value, no more a placeholder, finishig as we expect it to
+func Init(q *db.Queries) {
+	queries = q
+}
 
 func Auth_Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,8 +64,7 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		rawToken := sha256.Sum256([]byte(parts[0]))
-		hashToken := hex.EncodeToString(rawToken[:])
+		hashToken := HashToken(parts[1])
 
 		timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
 		defer cancel()
@@ -76,6 +83,7 @@ func Auth_Middleware(next http.Handler) http.Handler {
 				return
 			}
 
+			log.Error().Err(err).Msg("CheckToken failed")
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
 				Message: "An error occurred while validating the token",

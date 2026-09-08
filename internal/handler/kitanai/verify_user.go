@@ -270,6 +270,6 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	// Add the thingy in the "Authorization: Bearer" header
 	lib.Pretty(w, http.StatusCreated, VerificationResponse{
 		Status: "success",
-		Token:  req.Token,
+		Token:  token,
 	})
 }
