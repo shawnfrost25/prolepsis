@@ -4,54 +4,86 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/smtp"
-	db "prolepsis/internal/db/sqlc"
-	"strings"
 
+	db "prolepsis/internal/db/sqlc"
+
+	"github.com/resend/resend-go/v2"
 	"github.com/rs/zerolog"
 )
 
-func SendEmail(logger zerolog.Logger, queries *db.Queries, fromEmail string, appPassword string, toEmail string, subject string, message string) error {
-	logger.Debug().
-		Str("from", fromEmail).
-		Str("to", toEmail).
-		Msg("attempting to deliver raw SMTP email")
+var ErrEmailCooldown = errors.New("already sent mail to the given email, return after 20 hours")
 
-	subject = strings.ReplaceAll(subject, "\r", "")
-	subject = strings.ReplaceAll(subject, "\n", "")
-
-	host := "smtp.gmail.com"
-	addr := host + ":587"
-
-	auth := smtp.PlainAuth("", fromEmail, appPassword, host)
-
-	msgFormat := fmt.Sprintf(
-		"From: %s\r\n"+
-			"To: %s\r\n"+
-			"Subject: %s\r\n"+
-			"\r\n"+
-			"%s", fromEmail, toEmail, subject, message,
-	)
-
-	alreadySent, err := queries.EmailExists(context.Background(), toEmail)
-	if err != nil {
-		return err
+func SendLimitedEmail(
+	ctx context.Context,
+	logger zerolog.Logger,
+	queries *db.Queries,
+	apiKey string,
+	toEmail string,
+	subject string,
+	message string,
+) error {
+	if queries == nil {
+		return errors.New("database queries instance is nil")
 	}
-	// If the email already was sent once and it has cooldown on, we return a warning
+
+	alreadySent, err := queries.EmailExists(ctx, toEmail)
+	if err != nil {
+		return fmt.Errorf("failed to check email cooldown status: %w", err)
+	}
 	if alreadySent {
-		return errors.New("already sent mail to the given email, return after 20 hours")
+		return ErrEmailCooldown
 	}
 
-	err = smtp.SendMail(addr, auth, fromEmail, []string{toEmail}, []byte(msgFormat))
+	client := resend.NewClient(apiKey)
+	params := &resend.SendEmailRequest{
+		From:    "Prolepsis <onboarding@resend.dev>",
+		To:      []string{toEmail},
+		Subject: subject,
+		Text:    message,
+	}
+
+	_, err = client.Emails.SendWithContext(ctx, params)
 	if err != nil {
-		return err
+		return fmt.Errorf("resend delivery failed: %w", err)
+	}
+
+	if err := queries.InsertEmailCooldown(ctx, toEmail); err != nil {
+		logger.Error().Err(err).Str("to", toEmail).Msg("failed to insert email cooldown record")
+		return fmt.Errorf("failed to record email cooldown: %w", err)
 	}
 
 	logger.Info().
-		Str("from", fromEmail).
+		Str("to", toEmail).
+		Msg("successfully transmitted email package and set cooldown")
+
+	return nil
+}
+
+func SendEmail(
+	ctx context.Context,
+	logger zerolog.Logger,
+	apiKey string,
+	toEmail string,
+	subject string,
+	message string,
+) error {
+	client := resend.NewClient(apiKey)
+
+	params := &resend.SendEmailRequest{
+		From:    "Prolepsis <onboarding@resend.dev>",
+		To:      []string{toEmail},
+		Subject: subject,
+		Text:    message,
+	}
+
+	_, err := client.Emails.SendWithContext(ctx, params)
+	if err != nil {
+		return fmt.Errorf("resend delivery failed: %w", err)
+	}
+
+	logger.Info().
 		Str("to", toEmail).
 		Msg("successfully transmitted email package")
 
-	queries.InsertEmailCooldown(context.Background(), toEmail)
 	return nil
 }

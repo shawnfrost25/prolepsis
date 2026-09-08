@@ -1,4 +1,4 @@
--- We save the one to who we sent the email, so we place a timeout - so nobody will flood other's email for no reaso
+-- We save the one to who we sent the email, so we place a timeout - so nobody will flood other's email for no reason
 -- name: InsertEmailCooldown :exec
 INSERT INTO sent_emails (to_email, sent_at, expires_at)
 VALUES ($1, now(), now() + interval '20 hours') ON CONFLICT (to_email) DO UPDATE

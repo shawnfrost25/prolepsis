@@ -12,7 +12,7 @@ WHERE token = $1 AND expires_at > now();
 -- We delete everything, cuz yes
 -- name: DeleteRegistrationSteps :exec
 DELETE FROM pending_registrations
-WHERE token = $1;
+WHERE email = $1;
 
 -- We delete everything if the given status is 'created' or the token is 'expired'
 -- name: DeleteWhereDone :exec
@@ -24,3 +24,11 @@ WHERE status = 'created' OR now() > expires_at;
 UPDATE pending_registrations
 SET status  = 'created'
 WHERE token = $1;
+
+-- We check if the user exists inside pending_registrations, and if the token is even alright at this point
+-- name: ExistsInPendingRegistrations :one
+SELECT EXISTS (
+    SELECT 1
+    FROM pending_registrations
+    WHERE email = $1 AND expires_at > now()
+);

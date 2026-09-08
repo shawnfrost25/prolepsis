@@ -42,10 +42,10 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
+	timeout, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
 
-	info, err := h.queries.GetUserByID(timeout, u.ID)
+	info, err := h.Queries.GetUserByID(timeout, u.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().

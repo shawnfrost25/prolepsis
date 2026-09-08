@@ -7,20 +7,19 @@ import (
 )
 
 type Mailer struct {
-	FromEmail   string
-	AppPassword string
+	ApiKey string
 }
 
 type Handler struct {
-	pool    *pgxpool.Pool
-	queries *db.Queries
-	mailer  *Mailer
+	Pool    *pgxpool.Pool
+	Queries *db.Queries
+	Mailer  *Mailer
 }
 
-func New(pool *pgxpool.Pool, queries *db.Queries, maier *Mailer) *Handler {
+func New(pool *pgxpool.Pool, queries *db.Queries, mailer *Mailer) *Handler {
 	return &Handler{
-		pool:    pool,
-		queries: queries,
-		mailer:  maier,
+		Pool:    pool,
+		Queries: queries,
+		Mailer:  mailer,
 	}
 }
