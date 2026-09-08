@@ -49,6 +49,7 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
+	auth.Init(queries)
 
 	values := kitanai.Mailer{
 		ApiKey: apiKey,
