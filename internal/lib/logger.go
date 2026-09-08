@@ -12,7 +12,7 @@ import (
 
 func Init(level zerolog.Level) {
 	fileLogger := lumberjack.Logger{
-		Filename:   "mimi",
+		Filename:   "/var/log/mimi/mimi.log",
 		MaxSize:    10,
 		MaxAge:     20,
 		MaxBackups: 3,
