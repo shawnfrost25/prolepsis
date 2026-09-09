@@ -1,0 +1,201 @@
+name: "Golang-CI/CD"
+# Ugh, I already hate it from the bottom of my heart, yeah "I will make it bulletproof" - said a fool writing the days of his despair with his very hands
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "internal/**"
+      - "cmd/**"
+      - "proto/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "internal/**"
+      - "cmd/**"
+      - "proto/**"
+  workflow_dispatch:
+    inputs:
+      tag_version:
+        type: string
+        default: "latest"
+        description: "Please, write down the version of the image"
+        required: true
+
+env:
+  GO_VERSION: "1.24"
+  TAG_VERSION: "${{ github.event.inputs.tag_version || 'latest' }}"
+
+jobs:
+  lint:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Precise golang version"
+        uses: actions/setup-go@v3
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+          cache: true
+
+      - name: "Run code linter"
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: "2.13.2"
+  test:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Precise golang version"
+        uses: actions/setup-go@v3
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: "Start everything via docker compose"
+        env:
+          POSTGRES_USER: "${{ secrets.POSTGRES_USER }}"
+          PGUSER: "${{ secrets.PGUSER }}"
+          POSTGRES_DB: "${{ secrets.POSTGRES_DB }}"
+          POSTGRES_PASSWORD: "${{ secrets.POSTGRES_PASSWORD }}"
+        run: |
+          docker compose up -d
+
+      - name: "Run code test"
+        run: |
+          go test -race ./...
+
+      - name: "Close docker compose connection"
+        if: always()
+        run: |
+          docker compose down --remove-orphans --rmi local
+  trivy-path:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Fetch trivy"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: "Create trivy image"
+        run: |
+          trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed --format json . -o trivy_fs_report.json
+
+      - name: "Exit on critical severity"
+        run: |
+          trivy fs --exit-code 1 --severity CRITICAL --ignore-unfixed .
+
+      - name: "Create artifact with the report"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-report
+          path: trivy_fs_report.json
+          retention-days: 1
+  build:
+    runs-on: ubuntu-22.04
+    environment: staging
+    needs: [lint, test, trivy-path]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Setup buildx engine"
+        uses: docker/setup-buildx-action@v3
+
+      - name: "Build the docker image"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: false
+          load: true
+          tags: "ghcr.io/${{ github.actor }}/prolepsis:${{ env.TAG_VERSION }}"
+
+      - name: "Save docker image for next job"
+        run: |
+          docker save "ghcr.io/${{ github.actor }}/prolepsis:${{ env.TAG_VERSION }}" -o docker_image.tar
+
+      - name: "Create artifact with image"
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: docker_image.tar
+          retention-days: 1
+  trivy-image:
+    runs-on: ubuntu-22.04
+    environment: staging
+    needs: [build]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Fetch the docker image"
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: "Turn the tar file into an image"
+        run: |
+          docker load -i docker_image.tar
+
+      - name: "Fetch trivy"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: "Create artifact with the report"
+        run: |
+          trivy image --exit-code 0 --severity HIGH,CRITICAL --format json "ghcr.io/${{ github.actor }}/prolepsis:${{ env.TAG_VERSION }}" -o trivy_image_report.json
+
+      - name: "Exit on critical severity"
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL "ghcr.io/${{ github.actor }}/prolepsis:${{ env.TAG_VERSION }}"
+
+      - name: "Create artifact for the report"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-report
+          path: trivy_image_report.json
+          retention-days: 1
+  push:
+    runs-on: ubuntu-22.04
+    environment: production
+    needs: [trivy-image]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
+
+      - name: "Setup buildx engine"
+        uses: docker/setup-buildx-action@v3
+
+      - name: "Login to GHCR"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: "${{ github.actor }}"
+          password: "${{ secrets.TOKEN }}"
+
+      - name: "Fetch the docker image"
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: "Turn the tar file into an image"
+        run: |
+          docker load -i docker_image.tar
+
+      - name: "Push the image"
+        run: |
+          docker push "ghcr.io/${{ github.actor }}/prolepsis:${{ env.TAG_VERSION }}"
+
+# Just a random comment, so I finally reach 200/201 lines.
