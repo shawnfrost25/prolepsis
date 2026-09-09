@@ -1,0 +1,15 @@
+// protos/common/common.proto
+syntax = "proto3";
+
+package common;
+
+option go_package = "prolepsis/internal/pb/common";
+
+message RequestContext {
+  string user_id = 1;
+  string user_ip = 2;
+  string method = 3;
+  string path = 4;
+  string role = 5;
+  string trace = 6;
+}

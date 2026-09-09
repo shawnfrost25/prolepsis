@@ -2,15 +2,13 @@ syntax = "proto3";
 
 package pdf;
 
+option go_package = "prolepsis/internal/pb/pdf";
+
+import "common.proto";
+
 message PdfRequest {
-// We get everything from Golang's middleware
-  string user_id = 1;
-  string user_ip = 2;
-  string method = 3;
-  string path = 4;
-  string role = 5;
-// We get everything from Golang's middleware
-  string trace = 6;
+  common.RequestContext ctx = 1;
+  string raw_pdf = 2;
 }
 
 message PdfResponse {
