@@ -91,21 +91,6 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_password_hashing").
-			Str("email", req.Email).
-			Msg("error while hashing the password")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while trying to encrypt the given password",
-			TraceID: trace,
-		})
-		return
-	}
 	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -158,13 +143,12 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword(passwordHash, []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(info.PasswordHash), []byte(req.Password))
 	if err != nil {
 		logger.Warn().
 			Err(err).
 			Int("status", http.StatusUnauthorized).
 			Str("cause", "invalid_password_for_login").
-			Str("input", req.Password).
 			Msg("incorrect password")
 		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
 			Code:    "UNAUTHORIZED",

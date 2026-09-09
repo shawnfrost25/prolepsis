@@ -24,7 +24,7 @@ on:
         required: true
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.26"
   TAG_VERSION: "${{ github.event.inputs.tag_version || 'latest' }}"
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
       - name: "Run code linter"
         uses: golangci/golangci-lint-action@v4
         with:
-          version: "2.13.2"
+          version: latest
   test:
     runs-on: ubuntu-22.04
     environment: staging
@@ -169,6 +169,7 @@ jobs:
           retention-days: 1
   push:
     runs-on: ubuntu-22.04
+    if: false
     environment: production
     needs: [trivy-image]
     steps:

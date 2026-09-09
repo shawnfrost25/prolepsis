@@ -22,19 +22,22 @@ import (
 func TestGetUserByID(t *testing.T) {
 	_ = godotenv.Load("../../../.env")
 	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Fatal("Missing 'DATABASE_URL' inside .env")
+	}
 	timeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		panic(err)
+		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
 
 	config.MaxConns = 10
 
 	pool, err := pgxpool.NewWithConfig(timeout, config)
 	if err != nil {
-		panic(err)
+		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
 	defer pool.Close()
 
