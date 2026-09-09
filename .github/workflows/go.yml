@@ -106,7 +106,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-fs-report
+          name: trivy-fs-go-report
           path: trivy_fs_report.json
           retention-days: 1
   build:
@@ -137,7 +137,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
+          name: docker-image-go
           path: docker_image.tar
           retention-days: 1
   trivy-image:
@@ -151,7 +151,7 @@ jobs:
       - name: "Fetch the docker image"
         uses: actions/download-artifact@v4
         with:
-          name: docker-image
+          name: docker-image-go
 
       - name: "Turn the tar file into an image"
         run: |
@@ -173,7 +173,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-image-report
+          name: trivy-image-go-report
           path: trivy_image_report.json
           retention-days: 1
   push:
@@ -198,7 +198,7 @@ jobs:
       - name: "Fetch the docker image"
         uses: actions/download-artifact@v4
         with:
-          name: docker-image
+          name: docker-image-go
 
       - name: "Turn the tar file into an image"
         run: |
