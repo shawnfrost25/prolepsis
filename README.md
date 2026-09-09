@@ -1,2 +1,7 @@
-# prolepsis
-A multi-source developer data ETL pipeline built with Go, PostgreSQL, and a Rust gRPC sidecar. Pre-fetches and normalizes profile metrics from GitHub, LinkedIn, Stack Overflow, and LeetCode to provide instant SQL context for AI pipelines.
+## DISCLAIMER
+**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves. 
+
+## Current Features
+
+* **Authentication & User Management:** Working registration, login, and user profile querying.
+* **Token Validation:** Functioning session/token validation (currently backed by the primary database, with a planned migration to Redis).
