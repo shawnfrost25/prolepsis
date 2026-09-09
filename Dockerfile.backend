@@ -8,13 +8,13 @@ RUN go mod download
 
 COPY . ./
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/cruddy ./cmd/mimi
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/prolepsis ./cmd/mimi
 
 FROM scratch
 
-COPY --from=builder /app/bin/cruddy ./
+COPY --from=builder /app/bin/prolepsis ./
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 EXPOSE 8080
 
-CMD [ "./cruddy" ]
+CMD [ "./prolepsis" ]
