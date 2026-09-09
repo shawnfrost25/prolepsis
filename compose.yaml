@@ -24,6 +24,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    container_name: "prolepsis-backend"
     restart: unless-stopped
     ports:
       - 8080:8080
