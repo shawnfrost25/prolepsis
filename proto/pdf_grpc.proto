@@ -8,7 +8,7 @@ import "common.proto";
 
 message PdfRequest {
   common.RequestContext ctx = 1;
-  string raw_pdf = 2;
+  bytes raw_pdf = 2;
 }
 
 message PdfResponse {

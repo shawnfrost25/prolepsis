@@ -22,7 +22,7 @@ type UpdateRequest struct {
 
 func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "UpdateUserInfo").Logger()
-	u, ok := auth.FetchContext(w, r)
+	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		return
 	}

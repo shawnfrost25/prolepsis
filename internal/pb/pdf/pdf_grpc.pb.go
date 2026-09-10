@@ -25,7 +25,7 @@ const (
 type PdfRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ctx           *common.RequestContext `protobuf:"bytes,1,opt,name=ctx,proto3" json:"ctx,omitempty"`
-	RawPdf        string                 `protobuf:"bytes,2,opt,name=raw_pdf,json=rawPdf,proto3" json:"raw_pdf,omitempty"`
+	RawPdf        []byte                 `protobuf:"bytes,2,opt,name=raw_pdf,json=rawPdf,proto3" json:"raw_pdf,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -67,11 +67,11 @@ func (x *PdfRequest) GetCtx() *common.RequestContext {
 	return nil
 }
 
-func (x *PdfRequest) GetRawPdf() string {
+func (x *PdfRequest) GetRawPdf() []byte {
 	if x != nil {
 		return x.RawPdf
 	}
-	return ""
+	return nil
 }
 
 type PdfResponse struct {
@@ -134,7 +134,7 @@ const file_pdf_grpc_proto_rawDesc = "" +
 	"\n" +
 	"PdfRequest\x12(\n" +
 	"\x03ctx\x18\x01 \x01(\v2\x16.common.RequestContextR\x03ctx\x12\x17\n" +
-	"\araw_pdf\x18\x02 \x01(\tR\x06rawPdf\"K\n" +
+	"\araw_pdf\x18\x02 \x01(\fR\x06rawPdf\"K\n" +
 	"\vPdfResponse\x12\x1b\n" +
 	"\tpdf_title\x18\x01 \x01(\tR\bpdfTitle\x12\x1f\n" +
 	"\vpdf_content\x18\x02 \x01(\tR\n" +

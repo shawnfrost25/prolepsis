@@ -1,4 +1,3 @@
-// protos/common/common.proto
 syntax = "proto3";
 
 package common;
