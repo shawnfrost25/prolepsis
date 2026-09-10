@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
@@ -23,6 +24,9 @@ type contextKey string
 const traceCtx contextKey = "userTrace"
 const idCtx contextKey = "userID"
 const roleCtx contextKey = "userRole"
+const ipCtx contextKey = "userIP"
+const methodCtx contextKey = "userMethod"
+const pathCtx contextKey = "userPath"
 
 var queries *db.Queries
 
@@ -144,24 +148,30 @@ func Logger_Middleware(next http.Handler) http.Handler {
 		ctx := loggerReq.WithContext(r.Context())
 		// We pass the trace here, because Logger is global (used by registration and login too)
 		ctx = context.WithValue(ctx, traceCtx, trace)
+		ctx = context.WithValue(ctx, ipCtx, userIP)
+		ctx = context.WithValue(ctx, methodCtx, r.Method)
+		ctx = context.WithValue(ctx, pathCtx, r.URL.Path)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 type RequestContext struct {
-	ID    pgtype.UUID
-	Role  db.UserRole
-	Trace string
+	ID     pgtype.UUID
+	IP     string
+	Method string
+	Role   db.UserRole
+	Trace  string
+	Path   string
 }
 
 // We create multiple functions to return varuious values, because we cannot fetch it somewhere else (because the type is not a string, but ctx thingy)
-func getID(ctx context.Context) (pgtype.UUID, bool) {
+func GetID(ctx context.Context) (pgtype.UUID, bool) {
 	userID, ok := ctx.Value(idCtx).(pgtype.UUID)
 	return userID, ok
 }
 
-func getRole(ctx context.Context) (db.UserRole, bool) {
+func GetRole(ctx context.Context) (db.UserRole, bool) {
 	userRole, ok := ctx.Value(roleCtx).(db.UserRole)
 	return userRole, ok
 }
@@ -171,8 +181,23 @@ func GetTrace(ctx context.Context) (string, bool) {
 	return userTrace, ok
 }
 
+func GetIP(ctx context.Context) (string, bool) {
+	userIP, ok := ctx.Value(ipCtx).(string)
+	return userIP, ok
+}
+
+func GetMethod(ctx context.Context) (string, bool) {
+	userMethod, ok := ctx.Value(methodCtx).(string)
+	return userMethod, ok
+}
+
+func GetPath(ctx context.Context) (string, bool) {
+	userPath, ok := ctx.Value(pathCtx).(string)
+	return userPath, ok
+}
+
 // We delete redundancy by using a simple function
-func FetchContext(w http.ResponseWriter, r *http.Request) (RequestContext, bool) {
+func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestContext, bool) {
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "FetchContext").Logger()
 	trace, ok := GetTrace(r.Context())
 	if !ok {
@@ -191,7 +216,7 @@ func FetchContext(w http.ResponseWriter, r *http.Request) (RequestContext, bool)
 		return RequestContext{}, false
 	}
 
-	id, ok := getID(r.Context())
+	id, ok := GetID(r.Context())
 	if !ok {
 		logger.Warn().
 			Int("status", http.StatusUnauthorized).
@@ -211,7 +236,7 @@ func FetchContext(w http.ResponseWriter, r *http.Request) (RequestContext, bool)
 		return RequestContext{}, false
 	}
 
-	role, ok := getRole(r.Context())
+	role, ok := GetRole(r.Context())
 	if !ok {
 		logger.Warn().
 			Int("status", http.StatusForbidden).
@@ -231,9 +256,116 @@ func FetchContext(w http.ResponseWriter, r *http.Request) (RequestContext, bool)
 		return RequestContext{}, false
 	}
 
+	ip, ok := GetIP(r.Context())
+	if !ok {
+		logger.Warn().
+			Int("status", http.StatusUnauthorized).
+			Str("cause", "missing_ip_context").
+			Str("user_id", id.String()).
+			Str("trace_id", trace).
+			Interface("role", role).
+			Msg("user role context missing or invalid")
+
+		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
+			Code:    "UNAUTHORIZED",
+			Message: "User IP could not be verified",
+			Details: map[string]string{
+				"reason": "user ip missing from context",
+			},
+			TraceID: trace,
+		})
+		return RequestContext{}, false
+	}
+
+	path, ok := GetPath(r.Context())
+	if !ok {
+		logger.Warn().
+			Int("status", http.StatusUnauthorized).
+			Str("cause", "missing_ip_context").
+			Str("user_id", id.String()).
+			Str("trace_id", trace).
+			Interface("role", role).
+			Msg("user path context missing or invalid")
+
+		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
+			Code:    "UNAUTHORIZED",
+			Message: "User path could not be verified",
+			Details: map[string]string{
+				"reason": "user path missing from context",
+			},
+			TraceID: trace,
+		})
+		return RequestContext{}, false
+	}
+
+	method, ok := GetMethod(r.Context())
+	if !ok {
+		logger.Warn().
+			Int("status", http.StatusUnauthorized).
+			Str("cause", "missing_method_context").
+			Str("user_id", id.String()).
+			Str("trace_id", trace).
+			Interface("role", role).
+			Msg("user method context missing or invalid")
+
+		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
+			Code:    "UNAUTHORIZED",
+			Message: "User method could not be verified",
+			Details: map[string]string{
+				"reason": "user method missing from context",
+			},
+			TraceID: trace,
+		})
+		return RequestContext{}, false
+	}
+
 	return RequestContext{
-		ID:    id,
-		Role:  role,
-		Trace: trace,
+		ID:     id,
+		IP:     ip,
+		Method: method,
+		Role:   role,
+		Trace:  trace,
+		Path:   path,
 	}, true
+}
+
+func FetchContextOutsideHandler(ctx context.Context) (RequestContext, error) {
+	trace, ok := GetTrace(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_tracing_context")
+	}
+
+	id, ok := GetID(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_id_context")
+	}
+
+	role, ok := GetRole(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_role_context")
+	}
+
+	ip, ok := GetIP(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_ip_context")
+	}
+
+	path, ok := GetPath(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_path_context")
+	}
+
+	method, ok := GetMethod(ctx)
+	if !ok {
+		return RequestContext{}, fmt.Errorf("missing_method_context")
+	}
+
+	return RequestContext{
+		ID:     id,
+		IP:     ip,
+		Method: method,
+		Role:   role,
+		Trace:  trace,
+		Path:   path,
+	}, nil
 }

@@ -29,7 +29,7 @@ type User struct {
 
 func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "GetUserByQuery").Logger()
-	u, ok := auth.FetchContext(w, r)
+	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		return
 	}

@@ -17,7 +17,7 @@ import (
 
 func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "GetUserByID").Logger()
-	u, ok := auth.FetchContext(w, r)
+	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		// The function already handles the response and logging
 		return
