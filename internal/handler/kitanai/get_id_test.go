@@ -44,7 +44,7 @@ func TestGetUserByID(t *testing.T) {
 	queries := db.New(pool)
 	auth.Init(queries)
 
-	h := kitanai.New(pool, queries, nil)
+	h := kitanai.New(pool, queries, nil, nil)
 
 	test := []struct {
 		name     string

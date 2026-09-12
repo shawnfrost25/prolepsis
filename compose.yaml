@@ -3,8 +3,6 @@ services:
     image: "postgres:18"
     container_name: "prolepsis-db"
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     volumes:
       - prolepsis_db:/var/lib/postgresql
     environment:
@@ -15,11 +13,27 @@ services:
     env_file:
       - path: ".env"
         required: false
+    ports:
+      - 127.0.0.1:5432:5432
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       interval: 5s
       timeout: 10s
       retries: 3
+  rust-sidecar:
+    build:
+      context: .
+      dockerfile: rust/Dockerfile.rust
+    container_name: "prolepsis-rust-sidecar"
+    restart: unless-stopped
+    environment:
+      GRPC_PDF_ADDRESS: ${GRPC_PDF_ADDRESS}
+    expose:
+      - 8081
+    env_file:
+      - path: ".env"
+        required: false
+
   backend:
     build:
       context: .
@@ -36,6 +50,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rust-sidecar:
+        condition: service_started
 
 volumes:
   prolepsis_db:

@@ -1,0 +1,49 @@
+# Well, we will act as if it was inside prolepsis/ not prolepsis/rust/ - because inside the docker compose, we wrote "context: ."
+FROM rust:latest AS builder
+
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    # We delete the useless mess it left behind
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# This creates /app/rust/Cargo.*
+COPY rust/Cargo.toml rust/Cargo.lock ./rust/
+
+# It already exists, so it will simply 'cd' insdie 'rust'
+WORKDIR /app/rust
+
+# This creates /app/rust/src/bin/main.rs and /app/rust/build.rs - so it won't complain
+RUN mkdir -p src/bin && echo "fn main() {}" > ./src/bin/main.rs && echo "fn main() {}" > ./build.rs
+
+# We can run this, since we are insde /app/rust (which contains both Cargo)
+# Also, this creates the cached thingies inside ~/cargo/registry (outside /app/rust - meaning that this path can be deleted, since we already get what we want)
+RUN cargo fetch
+
+# We return to /app
+WORKDIR /app
+# This will copy our proto to /app/proto
+COPY ./proto/ ./proto
+# This will overwrite the existing /app/rust (the mock one) with the real 'rust/' we have inside on our local machine
+COPY ./rust/ ./rust
+
+# The path should have this directories currently:
+# /app
+# /app/rust/<all we have on our local machine specific for rust>
+# /app/proto/<all we have on our local machine specific for proto>
+WORKDIR /app/rust
+# Since inside 'Cargo.toml' we declared [[bin]] and wrote:
+# name = "prolepsis"
+# path = "src/bin/main.rs"
+# It will create the binary with the name "prolepsis", it won't just copy the name of our module, but give the specific name we decalred
+RUN cargo build --release
+
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=builder /app/rust/target/release/prolepsis ./
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+EXPOSE 8081
+
+CMD [ "./prolepsis" ]

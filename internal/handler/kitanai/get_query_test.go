@@ -41,7 +41,7 @@ func TestGetUserByQuery(t *testing.T) {
 	}
 
 	queries := db.New(pool)
-	h := kitanai.New(pool, queries, nil)
+	h := kitanai.New(pool, queries, nil, nil)
 	auth.Init(queries)
 
 	test := []struct {

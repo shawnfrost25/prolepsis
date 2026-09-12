@@ -17,10 +17,11 @@ type PdfClient struct {
 	client pdf.PdfServiceClient
 }
 
+// The given address here must match the port whre rust listens, because we send the request to that exact port (where rust listens)
 func NewClient(addr string) (*PdfClient, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return &PdfClient{}, err
+		return nil, err
 	}
 
 	return &PdfClient{
@@ -36,7 +37,7 @@ func (p *PdfClient) Close() error {
 	return nil
 }
 
-func (p *PdfClient) ExtractPdf(ctx context.Context, pdf_bytes []byte) (string, error) {
+func (p *PdfClient) ExtractPdf(ctx context.Context, pdf_title string, pdf_bytes []byte) (string, error) {
 	u, err := auth.FetchContextOutsideHandler(ctx)
 	if err != nil {
 		return "", err
@@ -54,7 +55,8 @@ func (p *PdfClient) ExtractPdf(ctx context.Context, pdf_bytes []byte) (string, e
 			Role:   string(u.Role),
 			Trace:  u.Trace,
 		},
-		RawPdf: pdf_bytes,
+		PdfTitle: pdf_title,
+		RawPdf:   pdf_bytes,
 	})
 	if err != nil {
 		return "", err

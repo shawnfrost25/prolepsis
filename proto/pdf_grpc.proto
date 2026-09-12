@@ -6,16 +6,21 @@ option go_package = "prolepsis/internal/pb/pdf";
 
 import "common.proto";
 
+// We precise how the request (that golang is going to send) must look like (it expects it to contain RequestContext and raw_pdf as fields in the request)
 message PdfRequest {
-  common.RequestContext ctx = 1;
-  bytes raw_pdf = 2;
+  common.RequestContext ctx     = 1;
+  string pdf_title = 2;
+  bytes                 raw_pdf = 3;
 }
 
+// Here we precise how the response must look like, so we must return PdfResponse with this two specific fields
 message PdfResponse {
-  string pdf_title =1;
+  string pdf_title   = 1;
   string pdf_content = 2;
 }
 
+// Here we precise how the function is going to be like, it must accept as request the structure of PdfRequest (RequestContext and raw_pdf) and it must send back (as Response) the structure of PdfResponse (pdf_title and pdf_content
+// Summary: Go sends the request (structure of PdfRequest) and responds with the structure of PdfResponse
 service PdfService {
   rpc PdfRPC (PdfRequest) returns (PdfResponse);
 }

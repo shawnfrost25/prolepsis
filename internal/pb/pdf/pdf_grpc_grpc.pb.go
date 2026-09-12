@@ -25,6 +25,9 @@ const (
 // PdfServiceClient is the client API for PdfService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Here we precise how the function is going to be like, it must accept as request the structure of PdfRequest (RequestContext and raw_pdf) and it must send back (as Response) the structure of PdfResponse (pdf_title and pdf_content
+// Summary: Go sends the request (structure of PdfRequest) and responds with the structure of PdfResponse
 type PdfServiceClient interface {
 	PdfRPC(ctx context.Context, in *PdfRequest, opts ...grpc.CallOption) (*PdfResponse, error)
 }
@@ -50,6 +53,9 @@ func (c *pdfServiceClient) PdfRPC(ctx context.Context, in *PdfRequest, opts ...g
 // PdfServiceServer is the server API for PdfService service.
 // All implementations must embed UnimplementedPdfServiceServer
 // for forward compatibility.
+//
+// Here we precise how the function is going to be like, it must accept as request the structure of PdfRequest (RequestContext and raw_pdf) and it must send back (as Response) the structure of PdfResponse (pdf_title and pdf_content
+// Summary: Go sends the request (structure of PdfRequest) and responds with the structure of PdfResponse
 type PdfServiceServer interface {
 	PdfRPC(context.Context, *PdfRequest) (*PdfResponse, error)
 	mustEmbedUnimplementedPdfServiceServer()

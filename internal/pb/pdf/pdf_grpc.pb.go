@@ -22,10 +22,12 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// We precise how the request (that golang is going to send) must look like (it expects it to contain RequestContext and raw_pdf as fields in the request)
 type PdfRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ctx           *common.RequestContext `protobuf:"bytes,1,opt,name=ctx,proto3" json:"ctx,omitempty"`
-	RawPdf        []byte                 `protobuf:"bytes,2,opt,name=raw_pdf,json=rawPdf,proto3" json:"raw_pdf,omitempty"`
+	PdfTitle      string                 `protobuf:"bytes,2,opt,name=pdf_title,json=pdfTitle,proto3" json:"pdf_title,omitempty"`
+	RawPdf        []byte                 `protobuf:"bytes,3,opt,name=raw_pdf,json=rawPdf,proto3" json:"raw_pdf,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -67,6 +69,13 @@ func (x *PdfRequest) GetCtx() *common.RequestContext {
 	return nil
 }
 
+func (x *PdfRequest) GetPdfTitle() string {
+	if x != nil {
+		return x.PdfTitle
+	}
+	return ""
+}
+
 func (x *PdfRequest) GetRawPdf() []byte {
 	if x != nil {
 		return x.RawPdf
@@ -74,6 +83,7 @@ func (x *PdfRequest) GetRawPdf() []byte {
 	return nil
 }
 
+// Here we precise how the response must look like, so we must return PdfResponse with this two specific fields
 type PdfResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PdfTitle      string                 `protobuf:"bytes,1,opt,name=pdf_title,json=pdfTitle,proto3" json:"pdf_title,omitempty"`
@@ -130,11 +140,12 @@ var File_pdf_grpc_proto protoreflect.FileDescriptor
 
 const file_pdf_grpc_proto_rawDesc = "" +
 	"\n" +
-	"\x0epdf_grpc.proto\x12\x03pdf\x1a\fcommon.proto\"O\n" +
+	"\x0epdf_grpc.proto\x12\x03pdf\x1a\fcommon.proto\"l\n" +
 	"\n" +
 	"PdfRequest\x12(\n" +
-	"\x03ctx\x18\x01 \x01(\v2\x16.common.RequestContextR\x03ctx\x12\x17\n" +
-	"\araw_pdf\x18\x02 \x01(\fR\x06rawPdf\"K\n" +
+	"\x03ctx\x18\x01 \x01(\v2\x16.common.RequestContextR\x03ctx\x12\x1b\n" +
+	"\tpdf_title\x18\x02 \x01(\tR\bpdfTitle\x12\x17\n" +
+	"\araw_pdf\x18\x03 \x01(\fR\x06rawPdf\"K\n" +
 	"\vPdfResponse\x12\x1b\n" +
 	"\tpdf_title\x18\x01 \x01(\tR\bpdfTitle\x12\x1f\n" +
 	"\vpdf_content\x18\x02 \x01(\tR\n" +
