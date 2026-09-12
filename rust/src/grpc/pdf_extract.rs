@@ -47,7 +47,7 @@ impl PdfService for MyPdfService {
                     cause = "failed_pdf_parsing",
                     "failed to turn the pdf content (bytes) to a pdf type"
                 );
-                return Err(Status::internal(format!("couldn't parse the content")));
+                return Err(Status::internal("couldn't parse the content".to_string()));
             }
             Err(_) => {
                 error!(
@@ -55,9 +55,9 @@ impl PdfService for MyPdfService {
                     cause = "panic_while_parsing_pdf",
                     "encountered a panic while trying to parse the pdf"
                 );
-                return Err(Status::internal(format!(
-                    "couldn't parse the content due to panic"
-                )));
+                return Err(Status::internal(
+                    "couldn't parse the content due to panic".to_string(),
+                ));
             }
         };
 
@@ -77,9 +77,9 @@ impl PdfService for MyPdfService {
                     "failed to retrieve page count of the pdf"
                 );
                 // "Enumerate" - seems like a hard word to understand... I use it as the synonym of "count" (just to sound more professional)
-                return Err(Status::internal(format!(
-                    "couldn't enumerate the page count"
-                )));
+                return Err(Status::internal(
+                    "couldn't enumerate the page count".to_string(),
+                ));
             }
             Err(_) => {
                 error!(
@@ -87,9 +87,9 @@ impl PdfService for MyPdfService {
                     cause = "panic_while_counting_pages",
                     "failed to retrieve page count of the pdf"
                 );
-                return Err(Status::internal(format!(
-                    "failed to enumerate pages due to panic"
-                )));
+                return Err(Status::internal(
+                    "failed to enumerate pages due to panic".to_string(),
+                ));
             }
         };
 
@@ -108,7 +108,9 @@ impl PdfService for MyPdfService {
                         cause = "failed_to_push_pdf_content",
                         "couldn't push the read content to the variable"
                     );
-                    return Err(Status::internal(format!("couldn't push the read content")));
+                    return Err(Status::internal(
+                        "couldn't push the read content".to_string(),
+                    ));
                 }
                 Err(_) => {
                     error!(
@@ -116,15 +118,15 @@ impl PdfService for MyPdfService {
                         cause = "panic_while_pushing_pdf_content",
                         "encountered a panic while trying to push the given content"
                     );
-                    return Err(Status::internal(format!(
-                        "panic while trying to push the content"
-                    )));
+                    return Err(Status::internal(
+                        "panic while trying to push the content".to_string(),
+                    ));
                 }
             }
         }
 
         let result = PdfResponse {
-            pdf_title: pdf_title,
+            pdf_title,
             pdf_content: full_text,
         };
 

@@ -25,7 +25,6 @@ type VerificationResponse struct {
 }
 
 func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
-	const maxAttempts = 5
 	logger := zerolog.Ctx(r.Context()).With().Str("handler", "VerifyRegistrations").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -195,7 +194,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Queries.UpdatePendingStatus(timeout, hashToken)
+	_ = h.Queries.UpdatePendingStatus(timeout, hashToken)
 
 	err = h.Queries.DeleteWhereDone(timeout)
 	if err != nil {

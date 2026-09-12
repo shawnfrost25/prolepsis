@@ -9,5 +9,5 @@ SET sent_at = EXCLUDED.sent_at, expires_at = EXCLUDED.expires_at;
 SELECT EXISTS (
     SELECT 1
     FROM sent_emails
-    WHERE to_email = $1 AND expires_at > now() 
+    WHERE to_email = $1 AND expires_at > now()
 );

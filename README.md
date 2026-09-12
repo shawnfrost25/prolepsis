@@ -1,5 +1,5 @@
 ## DISCLAIMER
-**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves. 
+**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves.
 
 ## Current Features
 

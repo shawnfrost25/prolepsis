@@ -67,7 +67,9 @@ func main() {
 		panic(err)
 	}
 	// We close the connection when we close the main
-	defer pdfClient.Close()
+	if err := pdfClient.Close(); err != nil {
+		panic(err)
+	}
 
 	k := kitanai.Handler{
 		Pool:      pool,
@@ -113,5 +115,7 @@ func main() {
 
 	fmt.Print("Successfully running on port 8080")
 	addr := "0.0.0.0:8080"
-	http.ListenAndServe(addr, r)
+	if err := http.ListenAndServe(addr, r); err != nil {
+		panic(err)
+	}
 }

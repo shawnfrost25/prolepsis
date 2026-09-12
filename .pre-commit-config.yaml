@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: go-lint
+        name: Run Go Lint
+        entry: golangci-lint run --fix ./...
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: rust-lint
+        name: Run Rust Lint
+        entry: cargo clippy --fix --manifest-path="./rust/Cargo.toml" --allow-dirty --all-targets --all-features -- -D warnings
+        language: system
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: go-test
+        name: Run Go Tests
+        entry: go test ./...
+        language: system
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: rust-test
+        name: Run Rust Test
+        entry: cargo test --manifest-path="./rust/Cargo.toml" --all-targets --all-features
+        language: system
+        pass_filenames: false

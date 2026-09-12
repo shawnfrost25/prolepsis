@@ -46,7 +46,7 @@ CREATE TABLE sessions(
 -- We create an index (to search more easily), because FOREIGN KEY doesn't give this priveledge to automatically create one
 CREATE INDEX idx_sessions_user_id ON sessions (user_id);
 
--- Creating a table to store the register_user data to verify_user  
+-- Creating a table to store the register_user data to verify_user
 CREATE TABLE pending_registrations (
     token TEXT NOT NULL,
     CONSTRAINT pending_registrations_token_pkey PRIMARY KEY (token),

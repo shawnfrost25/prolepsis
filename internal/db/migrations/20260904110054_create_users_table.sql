@@ -24,7 +24,7 @@ CREATE TABLE "public"."users" (
 -- Create "default_display_to_name" function
 CREATE FUNCTION "public"."default_display_to_name" () RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    -- In easy words: If the value for 'display_name' is empty or NULL, we default it to 'name' 
+    -- In easy words: If the value for 'display_name' is empty or NULL, we default it to 'name'
     IF NEW.display_name IS NULL OR length(trim(NEW.display_name)) = 0 THEN
         NEW.display_name := NEW.name;
     END IF;

@@ -290,7 +290,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		h.Queries.DeleteRegistrationSteps(timeout, *req.Email)
+		_ = h.Queries.DeleteRegistrationSteps(timeout, *req.Email)
 	}
 
 	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)

@@ -123,7 +123,7 @@ func (q *Queries) SecondStepRegisterUser(ctx context.Context, arg SecondStepRegi
 
 const updateUserNotForced = `-- name: UpdateUserNotForced :exec
 UPDATE users
-SET 
+SET
 display_name = COALESCE($1::text, display_name),
 bio = COALESCE($2::text, bio),
 location = COALESCE($3::text, location)
@@ -153,7 +153,7 @@ const userExists = `-- name: UserExists :one
 SELECT EXISTS (
     SELECT 1
     FROM users
-    WHERE email = $1 
+    WHERE email = $1
 )
 `
 
