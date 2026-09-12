@@ -70,16 +70,6 @@ jobs:
         with:
           go-version: "${{ env.GO_VERSION }}"
 
-      - name: "Downlaoding Atlas"
-        run: |
-          curl -sSf https://atlasgo.sh | sh
-
-      - name: "Running Atlas"
-        run: |
-          	atlas migrate apply \
-            --dir "file://internal/db/migrations" \
-            --url "${{ env.DATABASE_URL }}"
-
       - name: "Start everything via docker compose"
         env:
           POSTGRES_USER: "${{ secrets.POSTGRES_USER }}"
@@ -88,6 +78,14 @@ jobs:
           POSTGRES_PASSWORD: "${{ secrets.POSTGRES_PASSWORD }}"
         run: |
           docker compose up -d
+
+      - name: "Downloading Atlas"
+        run: |
+          curl -sSf https://atlasgo.sh | sh
+
+      - name: "Running Atlas"
+        run: |
+          atlas migrate apply --dir "file://./internal/db/migrations" --url "${{ env.DATABASE_URL }}"
 
       - name: "Run code tester"
         run: |
