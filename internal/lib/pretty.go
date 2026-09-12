@@ -13,5 +13,5 @@ func Pretty(w http.ResponseWriter, status int, data any) {
 
 	s := sonic.ConfigDefault.NewEncoder(w)
 	s.SetIndent("", "    ")
-	s.Encode(data)
+	_ = s.Encode(data)
 }

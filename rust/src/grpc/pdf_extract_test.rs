@@ -28,7 +28,7 @@ async fn test_pdf_successfull() -> Result<()> {
         "/src/grpc/test_healthy.pdf"
     ))?;
 
-    let service = MyPdfService::default();
+    let service = MyPdfService;
 
     let payload = PdfRequest {
         ctx: Some(ctx),
@@ -55,7 +55,7 @@ async fn test_pdf_failure() -> Result<()> {
         "/src/grpc/test_defected.pdf"
     ))?;
 
-    let service = MyPdfService::default();
+    let service = MyPdfService;
 
     let payload = PdfRequest {
         ctx: Some(ctx),

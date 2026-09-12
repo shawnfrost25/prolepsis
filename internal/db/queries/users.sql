@@ -7,7 +7,7 @@ WHERE id = $1;
 -- An SQL code to add info insdie the not-forced fields (display_name, bio, location)
 -- name: UpdateUserNotForced :exec
 UPDATE users
-SET 
+SET
 display_name = COALESCE(sqlc.narg('display_name')::text, display_name),
 bio = COALESCE(sqlc.narg('bio')::text, bio),
 location = COALESCE(sqlc.narg('location')::text, location)
@@ -19,7 +19,7 @@ WHERE id = sqlc.arg('id')::uuid;
 SELECT EXISTS (
     SELECT 1
     FROM users
-    WHERE email = $1 
+    WHERE email = $1
 );
 
 -- An SQL code to insert the users inside the database

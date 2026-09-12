@@ -1,8 +1,8 @@
 -- We use the token to fetch the info about the user
 -- name: CheckToken :one
-SELECT users.id, users.role 
-FROM sessions 
-JOIN users ON users.id = sessions.user_id 
+SELECT users.id, users.role
+FROM sessions
+JOIN users ON users.id = sessions.user_id
 WHERE sessions.token = $1 AND sessions.expires_at > now();
 
 -- Simply insert the opaque token

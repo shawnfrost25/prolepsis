@@ -177,10 +177,23 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	hashBytes := sha256.Sum256([]byte(token))
 	hashToken := hex.EncodeToString(hashBytes[:])
 
-	h.Queries.CreateSession(timeout, db.CreateSessionParams{
+	err = h.Queries.CreateSession(timeout, db.CreateSessionParams{
 		UserID: info.ID,
 		Token:  hashToken,
 	})
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_creation_failed").
+			Str("id", info.ID.String()).
+			Msg("couldn't create token inside database")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while trying to create the session token",
+		})
+		return
+	}
 
 	logger.Info().
 		Int("status", http.StatusOK).

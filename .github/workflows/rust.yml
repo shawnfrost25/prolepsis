@@ -1,216 +1,226 @@
 name: "Rust-CI/CD"
 
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - "rust/**"
-            - "**/src/**"
-            - "**/Cargo.toml"
-            - "**/Cargo.lock"
-            - "proto/**"
-            - "*compose*"
-            - "Dockerfile*"
-    pull_request:
-        branches:
-            - main
-        paths:
-            - "rust/**"
-            - "**/src/**"
-            - "**/Cargo.toml"
-            - "**/Cargo.lock"
-            - "proto/**"
-            - "*compose*"
-            - "Dockerfile*"
-    workflow_dispatch:
-        inputs:
-            tag_version:
-                type: string
-                default: "latest"
-                description: "Please, write down the version of the image"
-                required: true
+  push:
+    branches:
+      - main
+    paths:
+      - "rust/**"
+      - "**/src/**"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "proto/**"
+      - "*compose*"
+      - "Dockerfile*"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "rust/**"
+      - "**/src/**"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "proto/**"
+      - "*compose*"
+      - "Dockerfile*"
+  workflow_dispatch:
+    inputs:
+      tag_version:
+        type: string
+        default: "latest"
+        description: "Please, write down the version of the image"
+        required: true
 
 env:
-    TAG_VERSION: "${{ github.event.inputs.tag_version || 'latest' }}"
-    IMAGE_NAME: "prolepsis"
+  TAG_VERSION: "${{ github.event.inputs.tag_version || 'latest' }}"
+  IMAGE_NAME: "prolepsis"
 
 jobs:
-    lint:
-        runs-on: ubuntu-22.04
-        environment: staging
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+  lint:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Setup Rust Toolchain"
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: clippy, rustfmt
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
 
-            - name: "Cache Rust Dependencies"
-              uses: Swatinem/rust-cache@v2
+      - name: "Setup Rust Toolchain"
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
 
-            - name: "Check Formatting"
-              run: cargo fmt --check
+      - name: "Cache Rust Dependencies"
+        uses: Swatinem/rust-cache@v2
 
-            - name: "Run Clippy"
-              run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: "Check Formatting"
+        run: cargo fmt --manifest-path="./rust/Cargo.toml" -- --check
 
-    test:
-        runs-on: ubuntu-22.04
-        environment: staging
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+      - name: "Run Clippy"
+        run: cargo clippy --manifest-path="./rust/Cargo.toml" --all-targets --all-features -- -D warnings
 
-            - name: "Setup Rust Toolchain"
-              uses: dtolnay/rust-toolchain@stable
+  test:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Cache Rust Dependencies"
-              uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
 
-            - name: "Start dependencies via docker compose"
-              env:
-                  POSTGRES_USER: "${{ secrets.POSTGRES_USER }}"
-                  PGUSER: "${{ secrets.PGUSER }}"
-                  POSTGRES_DB: "${{ secrets.POSTGRES_DB }}"
-                  POSTGRES_PASSWORD: "${{ secrets.POSTGRES_PASSWORD }}"
-              run: |
-                  docker compose up -d
+      - name: "Setup Rust Toolchain"
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: "Run code test"
-              run: cargo test --all-targets --all-features
+      - name: "Cache Rust Dependencies"
+        uses: Swatinem/rust-cache@v2
 
-            - name: "Close docker compose connection"
-              if: always()
-              run: |
-                  docker compose down --remove-orphans --rmi local
+      - name: "Start dependencies via docker compose"
+        env:
+          POSTGRES_USER: "${{ secrets.POSTGRES_USER }}"
+          PGUSER: "${{ secrets.PGUSER }}"
+          POSTGRES_DB: "${{ secrets.POSTGRES_DB }}"
+          POSTGRES_PASSWORD: "${{ secrets.POSTGRES_PASSWORD }}"
+        run: |
+          docker compose up -d
 
-    trivy-path:
-        runs-on: ubuntu-22.04
-        environment: staging
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+      - name: "Run code test"
+        run: cargo test --manifest-path="./rust/Cargo.toml" --all-targets --all-features
 
-            - name: "Fetch trivy"
-              run: |
-                  curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - name: "Close docker compose connection"
+        if: always()
+        run: |
+          docker compose down --remove-orphans --rmi local
 
-            - name: "Create trivy report"
-              run: |
-                  trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed --format json . -o trivy_fs_report.json
+  trivy-path:
+    runs-on: ubuntu-22.04
+    environment: staging
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Exit on critical severity"
-              run: |
-                  trivy fs --exit-code 1 --severity CRITICAL --ignore-unfixed .
+      - name: "Fetch trivy"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-            - name: "Create artifact with the report"
-              if: failure()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: trivy-fs-rust-report
-                  path: trivy_fs_report.json
-                  retention-days: 1
+      - name: "Create trivy report"
+        run: |
+          trivy fs --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed --format json . -o trivy_fs_report.json
 
-    build:
-        runs-on: ubuntu-22.04
-        environment: staging
-        needs: [lint, test, trivy-path]
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+      - name: "Exit on critical severity"
+        run: |
+          trivy fs --exit-code 1 --severity CRITICAL --ignore-unfixed .
 
-            - name: "Setup buildx engine"
-              uses: docker/setup-buildx-action@v3
+      - name: "Create artifact with the report"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-rust-report
+          path: trivy_fs_report.json
+          retention-days: 1
 
-            - name: "Build the docker image"
-              uses: docker/build-push-action@v6
-              with:
-                  context: .
-                  file: Dockerfile.rust
-                  push: false
-                  load: true
-                  tags: "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"
+  build:
+    runs-on: ubuntu-22.04
+    environment: staging
+    needs: [lint, test, trivy-path]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Save docker image for next job"
-              run: |
-                  docker save "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}" -o docker_image.tar
+      - name: "Setup buildx engine"
+        uses: docker/setup-buildx-action@v3
 
-            - name: "Create artifact with image"
-              if: success()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: docker-image-rust
-                  path: docker_image.tar
-                  retention-days: 1
+      - name: "Build the docker image"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: rust/Dockerfile.rust
+          push: false
+          load: true
+          tags: "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"
 
-    trivy-image:
-        runs-on: ubuntu-22.04
-        environment: staging
-        needs: [build]
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+      - name: "Save docker image for next job"
+        run: |
+          docker save "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}" -o docker_image.tar
 
-            - name: "Fetch the docker image"
-              uses: actions/download-artifact@v4
-              with:
-                  name: docker-image-rust
+      - name: "Create artifact with image"
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-rust
+          path: docker_image.tar
+          retention-days: 1
 
-            - name: "Turn the tar file into an image"
-              run: |
-                  docker load -i docker_image.tar
+  trivy-image:
+    runs-on: ubuntu-22.04
+    environment: staging
+    needs: [build]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Fetch trivy"
-              run: |
-                  curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - name: "Fetch the docker image"
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-rust
 
-            - name: "Create artifact with the report"
-              run: |
-                  trivy image --exit-code 0 --severity HIGH,CRITICAL --format json "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}" -o trivy_image_report.json
+      - name: "Turn the tar file into an image"
+        run: |
+          docker load -i docker_image.tar
 
-            - name: "Exit on critical severity"
-              run: |
-                  trivy image --exit-code 1 --severity CRITICAL "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"
+      - name: "Fetch trivy"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-            - name: "Create artifact for the report"
-              if: failure()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: trivy-image-rust-report
-                  path: trivy_image_report.json
-                  retention-days: 1
+      - name: "Create artifact with the report"
+        run: |
+          trivy image --exit-code 0 --severity HIGH,CRITICAL --format json "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}" -o trivy_image_report.json
 
-    push:
-        runs-on: ubuntu-22.04
-        if: false
-        environment: production
-        needs: [trivy-image]
-        steps:
-            - name: "Check out repo code"
-              uses: actions/checkout@v4
+      - name: "Exit on critical severity"
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"
 
-            - name: "Setup buildx engine"
-              uses: docker/setup-buildx-action@v3
+      - name: "Create artifact for the report"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-rust-report
+          path: trivy_image_report.json
+          retention-days: 1
 
-            - name: "Login to GHCR"
-              uses: docker/login-action@v3
-              with:
-                  registry: ghcr.io
-                  username: "${{ github.actor }}"
-                  password: "${{ secrets.TOKEN }}"
+  push:
+    runs-on: ubuntu-22.04
+    if: false
+    environment: production
+    needs: [trivy-image]
+    steps:
+      - name: "Check out repo code"
+        uses: actions/checkout@v4
 
-            - name: "Fetch the docker image"
-              uses: actions/download-artifact@v4
-              with:
-                  name: docker-image-rust
+      - name: "Setup buildx engine"
+        uses: docker/setup-buildx-action@v3
 
-            - name: "Turn the tar file into an image"
-              run: |
-                  docker load -i docker_image.tar
+      - name: "Login to GHCR"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: "${{ github.actor }}"
+          password: "${{ secrets.TOKEN }}"
 
-            - name: "Push the image"
-              run: |
-                  docker push "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"
+      - name: "Fetch the docker image"
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-rust
+
+      - name: "Turn the tar file into an image"
+        run: |
+          docker load -i docker_image.tar
+
+      - name: "Push the image"
+        run: |
+          docker push "ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.TAG_VERSION }}"

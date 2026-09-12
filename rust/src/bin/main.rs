@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
     // See? If you enter "main.go" - you'll notice that this address is set as the address to send the request from golang to this address (meaning we are sending it to Rust)
     let addr = "0.0.0.0:8081".parse()?;
 
-    let pdf_service = MyPdfService::default();
+    let pdf_service = MyPdfService;
 
     println!("gRPC Server running smoothly on {}", addr);
 
