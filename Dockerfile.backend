@@ -8,6 +8,7 @@ RUN go mod download
 
 COPY . ./
 
+# Since we coppied everything from our local machine (at least the project), we will simply create a binary in the folder '/app/bin/<binary>' from '/app/cmd/mimi'
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/prolepsis ./cmd/mimi
 
 FROM scratch

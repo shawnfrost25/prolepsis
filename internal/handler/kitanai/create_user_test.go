@@ -53,7 +53,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	queries := db.New(pool)
-	h := kitanai.New(pool, queries, &value)
+	h := kitanai.New(pool, queries, &value, nil)
 	auth.Init(queries)
 
 	var yachiyoDate pgtype.Date

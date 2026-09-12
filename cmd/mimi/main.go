@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	filegrpc "prolepsis/internal/file_grpc"
 	"prolepsis/internal/handler/kitanai"
 	"prolepsis/internal/lib"
 	"time"
@@ -30,7 +32,11 @@ func main() {
 	if apiKey == "" {
 		panic("missing 'APP_PASSWORD' inside .env")
 	}
-	timeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	grpcAddr := os.Getenv("GRPC_PDF_ADDRESS")
+	if grpcAddr == "" {
+		panic("missing 'GRPC_PDF_ADDRESS' inside .env")
+	}
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	lib.Init(zerolog.InfoLevel)
@@ -55,10 +61,19 @@ func main() {
 		ApiKey: apiKey,
 	}
 
+	// This is on which port Rust will listen
+	pdfClient, err := filegrpc.NewClient(grpcAddr)
+	if err != nil {
+		panic(err)
+	}
+	// We close the connection when we close the main
+	defer pdfClient.Close()
+
 	k := kitanai.Handler{
-		Pool:    pool,
-		Queries: queries,
-		Mailer:  &values,
+		Pool:      pool,
+		Queries:   queries,
+		Mailer:    &values,
+		PdfClient: pdfClient,
 	}
 
 	// We steal the real IP of the user
@@ -93,8 +108,10 @@ func main() {
 		r.With(readLimiter).Get("/users/{id}", k.GetUserByID)
 		r.With(readLimiter).Get("/users", k.GetUserByQuery)
 		r.With(mutationLimiter).Patch("/users/update", k.UpdateUserInfo)
+		r.With(readLimiter).Post("/users/pdf/extract", k.ExtractPdf)
 	})
 
+	fmt.Print("Successfully running on port 8080")
 	addr := "0.0.0.0:8080"
 	http.ListenAndServe(addr, r)
 }
