@@ -61,6 +61,7 @@ jobs:
       DATABASE_URL: "${{ secrets.DATABASE_URL }}"
       FROM_EMAIL: "${{ secrets.FROM_EMAIL }}"
       RESEND_API_KEY: "${{ secrets.RESEND_API_KEY }}"
+      GRPC_PDF_ADDRESS: "${{ secrets.GRPC_PDF_ADDRESS }}"
     steps:
       - name: "Check out repo code"
         uses: actions/checkout@v4

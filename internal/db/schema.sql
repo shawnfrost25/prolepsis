@@ -1,5 +1,5 @@
 -- We create an enumerate to store the roles
-CREATE TYPE user_role AS ENUM ('user', 'admin', 'worker');
+CREATE TYPE user_role AS ENUM ('user', 'admin', 'worker', 'owner');
 
 -- The simple table made to store user info inside Kitanai (future server/app)
 CREATE TABLE users (
@@ -78,3 +78,15 @@ CREATE TABLE sent_emails (
 );
 
 CREATE INDEX idx_sent_emails_cooldown ON sent_emails (to_email, expires_at);
+
+-- We create a table for pending_deletions - made by workers
+CREATE TABLE pending_deletions (
+    user_id UUID NOT NULL,
+    CONSTRAINT pending_deletions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    requested_by UUID NOT NULL,
+    CONSTRAINT pending_deletions_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES users(id),
+    clarification TEXT NOT NULL,
+    CONSTRAINT pending_deletions_clarification_check CHECK (length(trim(clarification)) <= 1024),
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_processed BOOLEAN NOT NULL DEFAULT FALSE
+);

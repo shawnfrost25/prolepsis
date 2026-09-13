@@ -17,6 +17,7 @@ const (
 	UserRoleUser   UserRole = "user"
 	UserRoleAdmin  UserRole = "admin"
 	UserRoleWorker UserRole = "worker"
+	UserRoleOwner  UserRole = "owner"
 )
 
 func (e *UserRole) Scan(src interface{}) error {
@@ -52,6 +53,14 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UserRole), nil
+}
+
+type PendingDeletion struct {
+	UserID        pgtype.UUID
+	RequestedBy   pgtype.UUID
+	Clarification string
+	RequestedAt   pgtype.Timestamptz
+	IsProcessed   bool
 }
 
 type PendingRegistration struct {

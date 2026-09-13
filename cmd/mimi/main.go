@@ -109,6 +109,7 @@ func main() {
 
 		r.With(readLimiter).Get("/users/{id}", k.GetUserByID)
 		r.With(readLimiter).Get("/users", k.GetUserByQuery)
+		r.With(authLimiter).Delete("/users/delete", k.DeleteUser)
 		r.With(mutationLimiter).Patch("/users/update", k.UpdateUserInfo)
 		r.With(readLimiter).Post("/users/pdf/extract", k.ExtractPdf)
 	})

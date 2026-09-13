@@ -33,3 +33,12 @@ RETURNING id, name, display_name, sex, birth_date, email, created_at;
 SELECT id, name, email, password_hash
 FROM users
 WHERE email = $1;
+
+-- We check if this is the last admin
+-- name: CheckAdminCount :one
+SELECT COUNT(*) FROM users WHERE role = 'admin';
+
+-- We create a command to delete the user, yeah, scary stuff
+-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = sqlc.arg('id')::uuid;

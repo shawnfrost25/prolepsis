@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkAdminCount = `-- name: CheckAdminCount :one
+SELECT COUNT(*) FROM users WHERE role = 'admin'
+`
+
+// We check if this is the last admin
+func (q *Queries) CheckAdminCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, checkAdminCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = $1::uuid
+`
+
+// We create a command to delete the user, yeah, scary stuff
+func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const emailForInfo = `-- name: EmailForInfo :one
 SELECT id, name, email, password_hash
 FROM users
