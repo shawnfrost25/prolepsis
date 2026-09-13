@@ -61,6 +61,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			},
 			TraceID: u.Trace,
 		})
+		return
 	}
 
 	timeout, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
