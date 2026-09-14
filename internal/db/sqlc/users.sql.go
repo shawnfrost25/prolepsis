@@ -97,12 +97,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 }
 
 const secondStepRegisterUser = `-- name: SecondStepRegisterUser :one
-INSERT INTO users (name, display_name, sex, birth_date, email, password_hash, created_at)
-VALUES ($1::text, $2::text, $3, $4::date, $5::text, $6::text, now())
+INSERT INTO users (id, name, display_name, sex, birth_date, email, password_hash, created_at)
+VALUES ($1::uid, $2::text, $3::text, $4, $5::date, $6::text, $7::text, now())
 RETURNING id, name, display_name, sex, birth_date, email, created_at
 `
 
 type SecondStepRegisterUserParams struct {
+	ID           interface{}
 	Name         string
 	DisplayName  string
 	Sex          string
@@ -124,6 +125,7 @@ type SecondStepRegisterUserRow struct {
 // An SQL code to insert the users inside the database
 func (q *Queries) SecondStepRegisterUser(ctx context.Context, arg SecondStepRegisterUserParams) (SecondStepRegisterUserRow, error) {
 	row := q.db.QueryRow(ctx, secondStepRegisterUser,
+		arg.ID,
 		arg.Name,
 		arg.DisplayName,
 		arg.Sex,

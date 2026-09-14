@@ -46,38 +46,66 @@ func TestUpdateUserInfo(t *testing.T) {
 
 	queries := db.New(pool)
 
-	h := kitanai.New(pool, queries, nil, nil)
+	h := kitanai.New(nil, queries, nil, nil)
+	auth.Init(queries)
+
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+	}
 
 	test := []struct {
-		name     string
-		method   string
-		endpoint string
-		failed   bool
-		body     map[string]any
+		name      string
+		method    string
+		endpoint  string
+		authToken string
+		failed    bool
+		body      map[string]any
 	}{
 		{
 			// The "UpdateUserInfo" function is hard-locked to the user who sent the request (meaning that nobody could update something of somebody else)
-			name:     "Updating everything of mine",
-			method:   "PATCH",
-			endpoint: "/users/update",
-			failed:   false,
+			name:      "Updating Ethan Winter's display_name, bio, location",
+			method:    "PATCH",
+			endpoint:  "/users/update",
+			authToken: "Bearer 00000000000000000000000000000015",
+			failed:    false,
 			body: map[string]any{
-				"display_name": "Shawn_Sweetie",
-				"bio":          "A young guy, 17, trying my best learning, though attention-starved. UEHHHH, I DONT KNOW WHAT TO WRITE, I AM SIMPLY VAPID",
-				"location":     nil,
+				"display_name": "Rosemarys_Father",
+				"bio":          "A young system engineer, and the best father in game history",
+				"location":     "US, Louisiana",
 			},
 		},
 		{
-			name:     "Failing due to unprovided body",
-			method:   "PATCH",
-			endpoint: "/users/update",
-			failed:   true,
-			body:     nil,
+			name:      "Failing due to misconfigured location",
+			method:    "PATCH",
+			endpoint:  "/users/update",
+			authToken: "Bearer 00000000000000000000000000000018",
+			failed:    true,
+			body: map[string]any{
+				"display_name": "Shrine_Maiden",
+				"bio":          "A young layabout who loves sleeping and doing nothing",
+				"location":     "Gensokyo",
+			},
+		},
+		{
+			name:      "Failing due to empty body",
+			method:    "PATCH",
+			endpoint:  "/users/update",
+			authToken: "Bearer 00000000000000000000000000000022",
+			failed:    true,
+			body:      nil,
 		},
 	}
 
 	r := chi.NewRouter()
-	auth.Init(queries)
 	r.Use(auth.Auth_Middleware)
 	r.Use(auth.Logger_Middleware)
 	r.Patch("/users/update", h.UpdateUserInfo)
@@ -95,7 +123,7 @@ func TestUpdateUserInfo(t *testing.T) {
 
 			req := httptest.NewRequest(tt.method, tt.endpoint, body)
 			w := httptest.NewRecorder()
-			req.Header.Set("Authorization", "Bearer 711a89dd67a2fe9e0e8a0972dd3847e29c0bda32bc2cd8b671b4a277dda9c896")
+			req.Header.Set("Authorization", tt.authToken)
 
 			r.ServeHTTP(w, req)
 

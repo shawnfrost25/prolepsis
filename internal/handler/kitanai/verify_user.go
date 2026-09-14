@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
 
@@ -102,27 +103,9 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.Queries.FetchPendingRegistrationsInfo(timeout, hashToken)
+	val, err := h.RedisClient.HGetAll(timeout, "pending:registration:token:"+hashToken).Result()
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "user_token_not_found").
-				Str("input", hashToken).
-				Msg("user not found in database")
-
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "The given token doesn't match any user in the database",
-				Details: map[string]string{
-					"reason": "no rows in the database match the given token",
-				},
-				TraceID: trace,
-			})
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
+		if errors.Is(err, context.DeadlineExceeded) {
 			logger.Error().
 				Err(err).
 				Int("status", http.StatusRequestTimeout).
@@ -153,14 +136,68 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if len(val) == 0 {
+		logger.Warn().
+			Err(err).
+			Int("status", http.StatusNotFound).
+			Str("cause", "user_token_not_found").
+			Str("input", hashToken).
+			Msg("user not found in database, token expired")
+
+		lib.Pretty(w, http.StatusNotFound, lib.Error{
+			Code:    "NOT_FOUND",
+			Message: "The given token doesn't match any user in the database, token expired",
+			Details: map[string]string{
+				"reason": "no rows in the database match the given token",
+				"fix":    "retry the registration, so it will send another token",
+			},
+			TraceID: trace,
+		})
+		return
+	}
+
+	var birth pgtype.Date
+	birth1, err := time.Parse(time.DateOnly, val["birth_date"])
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "birth_date_error").
+			Msg("couldn't safely turn birt_date (type string) to birth_date (type pgtype.Date)")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while parsing birth_date",
+			TraceID: trace,
+		})
+		return
+	}
+
+	birth = pgtype.Date{Time: birth1, Valid: true}
+
+	id, err := uuid.NewRandom()
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "id_generation_error").
+			Msg("couldn't safely create an uuid")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while creating uuid",
+			TraceID: trace,
+		})
+		return
+	}
+	uuid := pgtype.UUID{Bytes: id, Valid: true}
 
 	info, err := h.Queries.SecondStepRegisterUser(timeout, db.SecondStepRegisterUserParams{
-		Name:         user.Name,
-		DisplayName:  user.Name,
-		Sex:          user.Sex,
-		BirthDate:    user.BirthDate,
-		Email:        user.Email,
-		PasswordHash: user.PasswordHash,
+		ID:           uuid,
+		Name:         val["name"],
+		DisplayName:  val["name"],
+		Sex:          val["sex"],
+		BirthDate:    birth,
+		Email:        val["email"],
+		PasswordHash: val["password_hash"],
 	})
 	if err != nil {
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -194,39 +231,6 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.Queries.UpdatePendingStatus(timeout, hashToken)
-
-	err = h.Queries.DeleteWhereDone(timeout)
-	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Str("input", hashToken).
-				Msg("timedout while searching for the user matching the token")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while validating the token",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-			})
-			return
-		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_user_deletion").
-			Msg("unexpected error while deleting info")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to delete user from pending registrations",
-		})
-		return
-	}
-
 	token, err := auth.CreateToken()
 	if err != nil {
 		logger.Error().
@@ -243,16 +247,26 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 	hashToken = auth.HashToken(token)
 
-	logger.Info().
-		Int("status", http.StatusCreated).
-		Str("cause", "successfully_created_user").
-		Str("id", info.ID.String())
-
-	err = h.Queries.CreateSession(timeout, db.CreateSessionParams{
-		UserID: info.ID,
-		Token:  hashToken,
-	})
+	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID, 5184000*time.Second).Result()
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Str("input", hashToken).
+				Msg("timedout while trying to create a new session")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while trying to create a new session",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
@@ -265,6 +279,55 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	inserted_fields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Str("input", hashToken).
+				Msg("timedout while trying to create a new session")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while trying to create a new session",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_creation_failed").
+			Str("id", info.ID.String()).
+			Msg("couldn't create token inside database")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while trying to create the session token",
+		})
+		return
+	}
+	if inserted_fields == 0 {
+		logger.Error().
+			Str("user_id", info.ID.String()).
+			Msg("SAdd returned 0 during registration. Token collision or duplicate request detected.")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "REGISTRATION_SESSION_ERROR",
+			Message: "An error occurred while establishing your session. Please try logging in.",
+			TraceID: trace,
+		})
+		return
+	}
+
+	logger.Info().
+		Int("status", http.StatusCreated).
+		Str("cause", "successfully_created_user_session").
+		Str("id", info.ID.String()).
+		Msg("successfully managed to create both user and session")
 
 	// Add the thingy in the "Authorization: Bearer" header
 	lib.Pretty(w, http.StatusCreated, VerificationResponse{

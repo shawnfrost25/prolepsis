@@ -2,12 +2,9 @@ package kitanai
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
-	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/lib"
 	"time"
 
@@ -174,14 +171,28 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashBytes := sha256.Sum256([]byte(token))
-	hashToken := hex.EncodeToString(hashBytes[:])
+	hashToken := auth.HashToken(token)
 
-	err = h.Queries.CreateSession(timeout, db.CreateSessionParams{
-		UserID: info.ID,
-		Token:  hashToken,
-	})
+	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID, 5184000*time.Second).Result()
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Str("input", hashToken).
+				Msg("timedout while trying to create a new session")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while trying to create a new session",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
@@ -203,5 +214,56 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Status: "success",
 		Token:  token,
 	})
+	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Str("input", hashToken).
+				Msg("timedout while trying to create a new session")
+			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+				Code:    "REQUEST_TIMEOUT",
+				Message: "An error occurred while trying to create a new session",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_creation_failed").
+			Str("id", info.ID.String()).
+			Msg("couldn't create token inside database")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while trying to create the session token",
+		})
+		return
+	}
+	if insertedFields == 0 {
+		logger.Error().
+			Str("user_id", info.ID.String()).
+			Msg("SAdd returned 0 during registration. Token collision or duplicate request detected.")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "An error occurred while establishing your session. Please try logging in.",
+			TraceID: trace,
+		})
+		return
+	}
 
+	logger.Info().
+		Int("status", http.StatusOK).
+		Msg("successfully created new session")
+
+	lib.Pretty(w, http.StatusOK, LoginResponse{
+		Status: "success",
+		Token:  token,
+	})
 }

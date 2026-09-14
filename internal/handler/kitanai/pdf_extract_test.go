@@ -52,8 +52,21 @@ func TestExtractPdf(t *testing.T) {
 		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
 
-	h := kitanai.New(pool, queries, nil, client)
+	h := kitanai.New(nil, queries, nil, client)
 	auth.Init(queries)
+
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+	}
 
 	test := []struct {
 		name     string
@@ -93,14 +106,19 @@ func TestExtractPdf(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Expected to open file flawlessly, got: %v", err)
 			}
-			if err := file.Close(); err != nil {
-				t.Fatalf("Expected the file to close, but it didn't: %v", err)
-			}
+			defer func() {
+				_ = file.Close()
+			}()
 
 			var body bytes.Buffer
 			writer := multipart.NewWriter(&body)
-			part, _ := writer.CreateFormFile("file", filepath.Base(tt.filePath))
-			_, _ = io.Copy(part, file)
+			part, err := writer.CreateFormFile("file", filepath.Base(tt.filePath))
+			if err != nil {
+				t.Fatalf("Failed to create form file: %v", err)
+			}
+			if _, err = io.Copy(part, file); err != nil {
+				t.Fatalf("Failed to copy file contents: %v", err)
+			}
 			if err := writer.Close(); err != nil {
 				t.Fatalf("Expected the writer to close, but it didn't: %v", err)
 			}
@@ -108,7 +126,7 @@ func TestExtractPdf(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.endpoint, &body)
 
 			req.Header.Set("Content-Type", writer.FormDataContentType())
-			req.Header.Set("Authorization", "Bearer 711a89dd67a2fe9e0e8a0972dd3847e29c0bda32bc2cd8b671b4a277dda9c896")
+			req.Header.Set("Authorization", "Bearer 00000000000000000000000000000001")
 
 			w := httptest.NewRecorder()
 

@@ -24,15 +24,16 @@ func (q *Queries) DeleteUserByRequest(ctx context.Context, userID pgtype.UUID) e
 	return err
 }
 
-const insertDeletionRequest = `-- name: InsertDeletionRequest :exec
-INSERT INTO pending_deletions (user_id, requested_by, clarification, requested_at, is_processed)
+const insertDeletionRequest = `-- name: InsertDeletionRequest :one
+INSERT INTO pending_deletions (user_id, requested_by, clarification, requested_at, scheduled_at, is_processed)
 VALUES (
     $1::uuid,
     $2::uuid,
     $3::text,
     now(),
+    now() + interval '24 hours',
     false
-)
+) RETURNING user_id, requested_by, clarification, requested_at, scheduled_at, is_processed
 `
 
 type InsertDeletionRequestParams struct {
@@ -42,7 +43,16 @@ type InsertDeletionRequestParams struct {
 }
 
 // We store the request to delete a user inside the database
-func (q *Queries) InsertDeletionRequest(ctx context.Context, arg InsertDeletionRequestParams) error {
-	_, err := q.db.Exec(ctx, insertDeletionRequest, arg.UserID, arg.RequestedBy, arg.Clarification)
-	return err
+func (q *Queries) InsertDeletionRequest(ctx context.Context, arg InsertDeletionRequestParams) (PendingDeletion, error) {
+	row := q.db.QueryRow(ctx, insertDeletionRequest, arg.UserID, arg.RequestedBy, arg.Clarification)
+	var i PendingDeletion
+	err := row.Scan(
+		&i.UserID,
+		&i.RequestedBy,
+		&i.Clarification,
+		&i.RequestedAt,
+		&i.ScheduledAt,
+		&i.IsProcessed,
+	)
+	return i, err
 }

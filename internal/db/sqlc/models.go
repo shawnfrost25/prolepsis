@@ -60,32 +60,8 @@ type PendingDeletion struct {
 	RequestedBy   pgtype.UUID
 	Clarification string
 	RequestedAt   pgtype.Timestamptz
+	ScheduledAt   pgtype.Timestamptz
 	IsProcessed   bool
-}
-
-type PendingRegistration struct {
-	Token        string
-	Name         string
-	Sex          string
-	BirthDate    pgtype.Date
-	Email        string
-	PasswordHash string
-	Status       string
-	CreatedAt    pgtype.Timestamptz
-	ExpiresAt    pgtype.Timestamptz
-}
-
-type SentEmail struct {
-	ToEmail   string
-	SentAt    pgtype.Timestamptz
-	ExpiresAt pgtype.Timestamptz
-}
-
-type Session struct {
-	UserID    pgtype.UUID
-	Token     string
-	CreatedAt pgtype.Timestamptz
-	ExpiresAt pgtype.Timestamptz
 }
 
 type User struct {

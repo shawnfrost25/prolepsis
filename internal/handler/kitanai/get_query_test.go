@@ -39,36 +39,53 @@ func TestGetUserByQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
+	defer pool.Close()
 
 	queries := db.New(pool)
 	h := kitanai.New(pool, queries, nil, nil)
 	auth.Init(queries)
 
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+	}
+
 	test := []struct {
-		name     string
-		method   string
-		endpoint string
-		failed   bool
-		body     any
+		name      string
+		method    string
+		endpoint  string
+		authToken string
+		failed    bool
+		body      any
 	}{
 		{
-			name:     "Trying to Asya Shubina's birthday",
-			method:   "GET",
-			endpoint: "/users?birthdate=2008-05-14",
-			failed:   false,
-			body:     nil,
+			name:      "Trying to Asya Shubina's birthday",
+			method:    "GET",
+			endpoint:  "/users?birth_date=2008-05-14",
+			authToken: "Bearer 00000000000000000000000000000009",
+			failed:    false,
+			body:      nil,
 		},
 		{
-			name:     "Trying to find only the female characters",
-			method:   "GET",
-			endpoint: "/users?sex=female",
-			failed:   false,
-			body:     nil,
+			name:      "Trying to find only the female characters",
+			method:    "GET",
+			endpoint:  "/users?sex=female",
+			authToken: "Bearer 00000000000000000000000000000001",
+			failed:    false,
+			body:      nil,
 		},
 		{
 			name:     "Searching for a non-existent display name",
 			method:   "GET",
-			endpoint: "/users?display_name=RO,%20Baia%20Mare",
+			endpoint: "/users?display_name=IDK_RANDOM_STUFFY",
 			failed:   true,
 			body:     nil,
 		},
@@ -92,7 +109,7 @@ func TestGetUserByQuery(t *testing.T) {
 
 			req := httptest.NewRequest(tt.method, tt.endpoint, body)
 			w := httptest.NewRecorder()
-			req.Header.Set("Authorization", "Bearer 711a89dd67a2fe9e0e8a0972dd3847e29c0bda32bc2cd8b671b4a277dda9c896")
+			req.Header.Set("Authorization", tt.authToken)
 
 			// Just as if we sent a curl with the given data
 			r.ServeHTTP(w, req)

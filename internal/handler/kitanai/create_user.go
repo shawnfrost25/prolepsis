@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"prolepsis/internal/auth"
-	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -104,35 +104,16 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
+	timeout, cancelDB := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancelDB()
 
-	emailTimeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	err = h.Queries.DeleteWhereDone(timeout)
-	if errors.Is(err, pgconn.ErrConnClosed) {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusRequestTimeout).
-			Str("cause", "timeout").
-			Msg("timedout while searching for the user matching the id")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An error occurred while deleting the pending registration",
-			Details: map[string]string{
-				"reason": "database error",
-				"fix":    "Please try again later",
-			},
-			TraceID: trace,
-		})
-		return
-	}
+	emailTimeout, cancelEmail := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancelEmail()
 
 	domain := "just_a_test.com"
 	appName := "Cruddy Inc."
 	standardResponse := map[string]string{
-		"message": fmt.Sprintf("If the provided information is valid, a verification token has been sent for %s.", appName),
+		"message": fmt.Sprintf("If the provided information is valid, a verification token has been sent for %s via email.", appName),
 	}
 	userExists, err := h.Queries.UserExists(timeout, *req.Email)
 	if err != nil {
@@ -158,7 +139,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			Int("status", http.StatusInternalServerError).
 			Str("cause", "database_registration_failed").
 			Str("email", *req.Email).
-			Msg("unexpected database error during email query")
+			Msg("unexpected database error while checking if an user matching the email exists or not")
 
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
@@ -169,52 +150,6 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	place := lib.ExtractLocation(r)
 	device := lib.ExtractDevice(r)
-	if userExists {
-
-		subject := fmt.Sprintf("[%s] Security notice: Registration attempt", appName)
-		message := fmt.Sprintf(
-			"Hello,\n\n"+
-				"Someone recently attempted to create an account on %s using your email address.\n\n"+
-				"Details of the attempt:\n"+
-				"- Time: %s\n"+
-				"- Location: %s\n"+
-				"- Device: %s\n\n"+
-				"If this was you, you can safely ignore this email and sign in to your existing account.\n\n"+
-				"If you did not initiate this request, no action is required—your account remains secure.\n\n"+
-				"Best regards,\nThe %s Team",
-			domain,
-			time.Now().Format("January 2, 2006 at 3:04 PM MST"),
-			place,
-			device,
-			appName,
-		)
-
-		err = lib.SendLimitedEmail(emailTimeout, logger, h.Queries, h.Mailer.ApiKey, *req.Email, subject, message)
-		if err != nil {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "failed_email_response").
-				Str("email", *req.Email).
-				Msg("could not deliver email notification, rate limited, email exists")
-
-			lib.Pretty(w, http.StatusOK, lib.Error{
-				Code:    "OK",
-				Message: "Check the inboxes of the provided email for the given token",
-				TraceID: trace,
-			})
-			return
-		}
-
-		logger.Info().
-			Int("status", http.StatusOK).
-			Str("email", *req.Email).
-			Msg("sent duplicate registration notification email")
-
-		lib.Pretty(w, http.StatusOK, standardResponse)
-		return
-	}
-
 	token, err := auth.CreateToken()
 	if err != nil {
 		logger.Error().
@@ -231,12 +166,102 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject := fmt.Sprintf("Verify your email for %s", appName)
+	if userExists {
+		// doesn_exist = true (if the rate limit get inserted); else it will be false, meaning the rate limit is already in between the entries
+		doesnt_exists, err := h.RedisClient.SetNX(timeout, "pending:registration:email:"+*req.Email, 1, 24*time.Hour).Result()
+		// If an error happened wile trying to insert the rate limited email
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("timeout while trying to verify or insert rate limit constraints")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timeout while verifying system availability. Please try again.",
+					TraceID: trace,
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("unrecognized error while validating rate limit constraints")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized structural fault while verifying request constraints",
+				TraceID: trace,
+			})
+			return
+		}
 
+		// If the email rate limit doesn't exists, we send a warning email (the rate limit get created)
+		if doesnt_exists {
+			subject := fmt.Sprintf("[%s] Security notice: Registration attempt", appName)
+			message := fmt.Sprintf(
+				"Hello,\n\n"+
+					"Someone recently attempted to create an account on %s using your email address.\n\n"+
+					"Details of the attempt:\n"+
+					"- Time: %s\n"+
+					"- Location: %s\n"+
+					"- Device: %s\n\n"+
+					"If this was you, you can safely ignore this email and sign in to your existing account.\n\n"+
+					"If you did not initiate this request, no action is required—your account remains secure.\n\n"+
+					"Best regards,\nThe %s Team",
+				domain,
+				time.Now().Format("January 2, 2006 at 3:04 PM MST"),
+				place,
+				device,
+				appName,
+			)
+
+			err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
+			if err != nil {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusInternalServerError).
+					Str("cause", "failed_email_response").
+					Str("email", *req.Email).
+					Msg("could not deliver security notification email to existing user account")
+				_ = h.RedisClient.Del(timeout, "pending:registration:email:"+*req.Email).Err()
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "EMAIL_DELIVERY_FAILED",
+					Message: "Failed to securely dispatch notification mail. Please try again shortly.",
+					TraceID: trace,
+				})
+				return
+			}
+
+			logger.Info().
+				Int("status", http.StatusOK).
+				Str("email", *req.Email).
+				Msg("successfully dispatched duplicate account registration security notice")
+
+			lib.Pretty(w, http.StatusOK, standardResponse)
+			return
+		}
+		logger.Warn().
+			Str("email", *req.Email).
+			Int("status", http.StatusTooManyRequests).
+			Str("cause", "rate_limit").
+			Msg("registration notice request rejected because an active rate limit key exists for this email")
+
+		lib.Pretty(w, http.StatusTooManyRequests, lib.Error{
+			Code:    "TOO_MANY_REGISTRATION_REQUESTS",
+			Message: "An account security email was already sent recently. Please check your inbox or wait before trying again.",
+			TraceID: trace,
+		})
+		return
+	}
+
+	// Since the "if" above didn't trigger, it means that there is no user in the database, so we can safely create one
+	subject := fmt.Sprintf("Verify your email for %s", appName)
 	message := fmt.Sprintf(
 		"Hello %s,\n\n"+
 			"Thank you for signing up for %s!\n\n"+
-			"This verification link will expire in 3 minutes. Please use this token: %v\n\n"+
+			"This verification link will expire in 3 minutes. Please click on the provided link: http://127.0.0.1:8080/users/create/verify/%v\n\n"+
 			"If you did not create an account, you can safely ignore this message.\n\n"+
 			"Best regards,\nThe %s Team",
 		*req.Name,
@@ -244,71 +269,6 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		token,
 		appName,
 	)
-
-	exists, err := h.Queries.ExistsInPendingRegistrations(timeout, *req.Email)
-	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("timedout while searching for the user matching the email")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while searching for matching email",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-				TraceID: trace,
-			})
-			return
-		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "database_registration_failed").
-			Str("email", *req.Email).
-			Msg("unexpected database error during email query")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An unexpected error occurred.",
-			TraceID: trace,
-		})
-		return
-	}
-
-	if exists {
-		if exists {
-			logger.Warn().
-				Int("status", http.StatusOK).
-				Str("cause", "healthy_token").
-				Msg("active pending registration exists, returning standard response")
-
-			lib.Pretty(w, http.StatusOK, standardResponse)
-			return
-		}
-	} else {
-		_ = h.Queries.DeleteRegistrationSteps(timeout, *req.Email)
-	}
-
-	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_email_response").
-			Str("email", *req.Email).
-			Msg("could not deliver email notification")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to process request. Please try again later.",
-			TraceID: trace,
-		})
-		return
-	}
 
 	hashToken := auth.HashToken(token)
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
@@ -326,25 +286,88 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	err = h.Queries.FirstStepRegisterUser(timeout, db.FirstStepRegisterUserParams{
-		Token:        hashToken,
-		Name:         *req.Name,
-		Sex:          *req.Sex,
-		BirthDate:    *req.BirthDate,
-		Email:        *req.Email,
-		PasswordHash: string(hashPassword),
-	})
-
+	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Int("status", http.StatusRequestTimeout).
-			Str("cause", "timeout").
-			Msg("timedout while trying to insert user inside pending_registrations")
-		lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-			Code:    "REQUEST_TIMEOUT",
-			Message: "Timeout while inserting inside database",
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "failed_email_response").
+			Str("email", *req.Email).
+			Msg("could not deliver email notification")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to process request. Please try again later.",
+			TraceID: trace,
+		})
+		return
+	}
+
+	insertedFields, err := h.RedisClient.HSetEXWithArgs(timeout, "pending:registration:token:"+hashToken, &redis.HSetEXOptions{
+		Condition:      "FNX",
+		ExpirationType: redis.HSetEXExpirationEX,
+		ExpirationVal:  180,
+	},
+		"name", *req.Name,
+		"sex", *req.Sex,
+		// time.DateOnly -> YYYY-MM-DD
+		"birth_date", req.BirthDate.Time.Format(time.DateOnly),
+		"email", *req.Email,
+		"password_hash", string(hashPassword),
+	).Result()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Msg("timeout while trying to insert redis Hash inside the entries")
+			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+				Code:    "REQUEST_TIMEOUT",
+				Message: "Timeout while trying to insert data through redis entries",
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "unrecognized").
+			Msg("unrecognized error while trying to insert data through redis entries")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Unrecognized error while trying to insert redis data",
+			TraceID: trace,
+		})
+		return
+	}
+	// Using "FNX" (Field Not Exists) ensures fields are only inserted if they do not already exist. A return value of 0 means the operation skipped because the registration record already exists. Otherwise, it returns the total number of newly created hash fields.
+	if insertedFields == 0 {
+		logger.Warn().
+			Int("status", http.StatusConflict).
+			Str("cause", "pending_registration_already_exists").
+			Msg("this pending registration already exists as entry")
+		lib.Pretty(w, http.StatusConflict, lib.Error{
+			Code:    "CONFLICT",
+			Message: "You already have a working session, please check the email and click the link on it",
+			Details: map[string]string{
+				"reason": "key already exists inside the pending registrations",
+				"fix":    "don't try registrating, simply enter the email and click the link send by us",
+			},
+			TraceID: trace,
+		})
+		return
+	}
+
+	if insertedFields != 5 {
+		logger.Error().
+			Int64("inserted", insertedFields).
+			Int("status", http.StatusInternalServerError).
+			Msg("unexpected number of hash fields inserted into Redis")
+
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "PARTIAL_WRITE_ERROR",
+			Message: "Failed to write complete registration details into cache",
 			TraceID: trace,
 		})
 		return
@@ -353,7 +376,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	logger.Info().
 		Int("status", http.StatusOK).
 		Str("email", *req.Email).
-		Msg("successfully created pending user registration")
+		Msg("successfully created the pending registration")
 
 	lib.Pretty(w, http.StatusOK, standardResponse)
 }

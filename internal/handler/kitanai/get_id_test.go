@@ -20,12 +20,12 @@ import (
 )
 
 func TestGetUserByID(t *testing.T) {
-	_ = godotenv.Load("../../../.env")
+	var _ = godotenv.Load("../../../.env")
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		t.Fatal("Missing 'DATABASE_URL' inside .env")
 	}
-	timeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	config, err := pgxpool.ParseConfig(databaseURL)
@@ -44,39 +44,52 @@ func TestGetUserByID(t *testing.T) {
 	queries := db.New(pool)
 	auth.Init(queries)
 
-	h := kitanai.New(pool, queries, nil, nil)
+	h := kitanai.New(nil, queries, nil, nil)
+
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+	}
 
 	test := []struct {
-		name     string
-		method   string
-		endpoint string
-		idParam  string
-		failed   bool
-		body     any
+		name      string
+		method    string
+		endpoint  string
+		authToken string
+		failed    bool
+		body      any
 	}{
 		{
-			name:     "Searching for user number 2",
-			method:   "GET",
-			endpoint: "/users/7f1829b7-5b69-4dc9-8a49-f3cd393e1653",
-			idParam:  "7f1829b7-5b69-4dc9-8a49-f3cd393e1653",
-			failed:   false,
-			body:     nil,
+			name:      "Searching for user number 2 (Sheena Totsuki)",
+			method:    "GET",
+			endpoint:  "/users/00000000-0000-0000-0000-000000000001",
+			authToken: "Bearer 00000000000000000000000000000002",
+			failed:    false,
+			body:      nil,
 		},
 		{
-			name:     "Searching for the last user",
-			method:   "GET",
-			endpoint: "/users/d4d1f675-6453-410e-9693-86885d842ed1",
-			idParam:  "d4d1f675-6453-410e-9693-86885d842ed1",
-			failed:   false,
-			body:     nil,
+			name:      "Searching for the last user (Loki Laufeyson)",
+			method:    "GET",
+			endpoint:  "/users/00000000-0000-0000-0000-000000000024",
+			authToken: "Bearer 00000000000000000000000000000024",
+			failed:    false,
+			body:      nil,
 		},
 		{
-			name:     "Failing by searching an unexistent user",
-			method:   "GET",
-			endpoint: "/users/999asd",
-			idParam:  "99asda9",
-			failed:   true,
-			body:     nil,
+			name:      "Failing by searching an unexistent user",
+			method:    "GET",
+			endpoint:  "/users/00000000-0000-0000-0000-0000000000999",
+			authToken: "Bearer 000000000000000000000000000000999",
+			failed:    true,
+			body:      nil,
 		},
 	}
 
@@ -98,7 +111,7 @@ func TestGetUserByID(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(tt.method, tt.endpoint, body)
-			req.Header.Set("Authorization", "Bearer 711a89dd67a2fe9e0e8a0972dd3847e29c0bda32bc2cd8b671b4a277dda9c896")
+			req.Header.Set("Authorization", tt.authToken)
 			w := httptest.NewRecorder()
 
 			r.ServeHTTP(w, req)
