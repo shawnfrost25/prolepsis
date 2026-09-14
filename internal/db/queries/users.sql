@@ -24,8 +24,8 @@ SELECT EXISTS (
 
 -- An SQL code to insert the users inside the database
 -- name: SecondStepRegisterUser :one
-INSERT INTO users (name, display_name, sex, birth_date, email, password_hash, created_at)
-VALUES (sqlc.arg('name')::text, sqlc.arg('display_name')::text, sqlc.arg('sex'), sqlc.arg('birth_date')::date, sqlc.arg('email')::text, sqlc.arg('password_hash')::text, now())
+INSERT INTO users (id, name, display_name, sex, birth_date, email, password_hash, created_at)
+VALUES (sqlc.arg('id')::uid, sqlc.arg('name')::text, sqlc.arg('display_name')::text, sqlc.arg('sex'), sqlc.arg('birth_date')::date, sqlc.arg('email')::text, sqlc.arg('password_hash')::text, now())
 RETURNING id, name, display_name, sex, birth_date, email, created_at;
 
 -- We simply get info for later (inside login) - so we can update the session

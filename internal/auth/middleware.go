@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -29,14 +31,13 @@ const methodCtx contextKey = "userMethod"
 const pathCtx contextKey = "userPath"
 
 var queries *db.Queries
+var red *redis.Client
 
 // Workflow without this function:
 // We delcare 'queries' (a placeholder) -> function starts for real -> no value given to 'queries' -> defaults to 'nil' (because it has a pointer, it's '*db.Queries')
-
-// Workflow with this function:
-// We delcare 'queries' (a placeholder) -> we use this function to give it a value -> it has a value, no more a placeholder, finishig as we expect it to
-func Init(q *db.Queries) {
+func Init(q *db.Queries, rb *redis.Client) {
 	queries = q
+	red = rb
 }
 
 func Auth_Middleware(next http.Handler) http.Handler {
@@ -73,9 +74,16 @@ func Auth_Middleware(next http.Handler) http.Handler {
 		timeout, cancel := context.WithTimeout(r.Context(), 250*time.Millisecond)
 		defer cancel()
 
-		user, err := queries.CheckToken(timeout, hashToken)
+		id, err := red.Get(timeout, "session:token:"+hashToken).Result()
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, context.DeadlineExceeded) {
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "INTERNAL_SERVER_ERROR",
+					Message: "Couldn't fetch token due to timeout",
+				})
+				return
+			}
+			if errors.Is(err, redis.Nil) {
 				lib.Pretty(w, http.StatusUnauthorized, lib.Error{
 					Code:    "UNAUTHORIZED",
 					Message: "The provided token is invalid or expired",
@@ -86,7 +94,6 @@ func Auth_Middleware(next http.Handler) http.Handler {
 				})
 				return
 			}
-
 			log.Error().Err(err).Msg("CheckToken failed")
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
@@ -98,11 +105,94 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			})
 			return
 		}
+		var uuid pgtype.UUID
+		err = uuid.Scan(id)
+		if err != nil {
+			log.Error().Err(err).Str("id_string", id).Msg("Failed to parse UUID from Redis string")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Session contains an invalid identifier data format",
+			})
+			return
+		}
 
-		_ = queries.UpdateSession(timeout, hashToken)
+		beforeExpiration, err := red.TTL(timeout, "session:token:"+hashToken).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "INTERNAL_SERVER_ERROR",
+					Message: "Couldn't obtain token TTL due to timeout",
+				})
+				return
+			}
+			log.Error().Err(err).Msg("CheckToken failed")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while fetching the TTL of the token",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+			})
+			return
+		}
 
-		ctx := context.WithValue(r.Context(), idCtx, user.ID)
-		ctx = context.WithValue(ctx, roleCtx, user.Role)
+		if beforeExpiration < 2592000*time.Second {
+			_, err := red.Expire(timeout, "session:token:"+hashToken, 5184000*time.Second).Result()
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+						Code:    "INTERNAL_SERVER_ERROR",
+						Message: "Couldn't update the token due to timeout",
+					})
+					return
+				}
+				log.Error().Err(err).Msg("Token update failed")
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "INTERNAL_SERVER_ERROR",
+					Message: "An error occurred while fetching the TTL of the token",
+					Details: map[string]string{
+						"reason": "database error",
+						"fix":    "Please try again later",
+					},
+				})
+				return
+			}
+		}
+
+		info, err := queries.GetUserByID(timeout, uuid)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				log.Error().Err(err).Msg("no users match the provided id")
+				lib.Pretty(w, http.StatusNotFound, lib.Error{
+					Code:    "NOT_FOUND",
+					Message: "The provided id is invalid",
+					Details: map[string]string{
+						"reason": "the provided id doesn't matches nobody in the database",
+						"fix":    "try logging out and logging in again",
+					},
+				})
+				return
+			}
+			if errors.Is(err, pgconn.ErrConnClosed) {
+				log.Error().Err(err).Msg("timeout while searching an user matching the provided id")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIME",
+					Message: "Timeout while querying through the users to match the provided id",
+				})
+				return
+			}
+			log.Error().Err(err).Msg("unrecognized error while querying provided id")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error while querying the id",
+			})
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), idCtx, uuid)
+
+		ctx = context.WithValue(ctx, roleCtx, info.Role)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

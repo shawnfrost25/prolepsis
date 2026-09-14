@@ -18,15 +18,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func TestUpdateUserInfo(t *testing.T) {
+func TestDeleteUSer(t *testing.T) {
 	_ = godotenv.Load("../../../.env")
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		t.Fatal("Missing 'DATABASE_URL' inside .env")
-	}
-	email := os.Getenv("FROM_EMAIL")
-	if email == "" {
-		t.Fatal("Missing 'FROM_EMAIL' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -66,49 +62,49 @@ func TestUpdateUserInfo(t *testing.T) {
 		name      string
 		method    string
 		endpoint  string
+		idParam   string
 		authToken string
 		failed    bool
 		body      map[string]any
 	}{
 		{
-			// The "UpdateUserInfo" function is hard-locked to the user who sent the request (meaning that nobody could update something of somebody else)
-			name:      "Updating Ethan Winter's display_name, bio, location",
-			method:    "PATCH",
-			endpoint:  "/users/update",
-			authToken: "Bearer 00000000000000000000000000000015",
+			name:      "Trying to delete Asya Shubina (as Asya Shubina, a self-deletion)",
+			method:    "DELETE",
+			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000009",
+			authToken: "Bearer 00000000000000000000000000000009",
 			failed:    false,
 			body: map[string]any{
-				"display_name": "Rosemarys_Father",
-				"bio":          "A young system engineer, and the best father in game history",
-				"location":     "US, Louisiana",
+				"status":        "CONFIRM",
+				"clarification": "Uhm, the app sucks, like...a lot, slop",
 			},
 		},
 		{
-			name:      "Failing due to misconfigured location",
-			method:    "PATCH",
-			endpoint:  "/users/update",
-			authToken: "Bearer 00000000000000000000000000000018",
+			name:      "Trying to delete Hinako (owner) as Airi (user) - Failed",
+			method:    "DELETE",
+			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000006",
+			authToken: "Bearer 00000000000000000000000000000005",
 			failed:    true,
 			body: map[string]any{
-				"display_name": "Shrine_Maiden",
-				"bio":          "A young layabout who loves sleeping and doing nothing",
-				"location":     "Gensokyo",
+				"clarification": "Got ostracized due to her, delete her",
 			},
 		},
 		{
-			name:      "Failing due to empty body",
-			method:    "PATCH",
-			endpoint:  "/users/update",
-			authToken: "Bearer 00000000000000000000000000000022",
-			failed:    true,
-			body:      nil,
+			name:      "Trying to delete Ethan Winters (worker) as Chris Redfield (admin)",
+			method:    "DELETE",
+			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000015",
+			authToken: "Bearer 00000000000000000000000000000016",
+			failed:    false,
+			body: map[string]any{
+				// UHM, SPOILERS (He's not dead, k?)
+				"clarification": "Ethan, confirmed death after the encounter with Miranda, inactive account",
+			},
 		},
 	}
 
 	r := chi.NewRouter()
 	r.Use(auth.Auth_Middleware)
 	r.Use(auth.Logger_Middleware)
-	r.Patch("/users/update", h.UpdateUserInfo)
+	r.Delete("/users/delete/{id}", h.DeleteUser)
 
 	for _, tt := range test {
 		t.Run(tt.name, func(t *testing.T) {
@@ -116,7 +112,8 @@ func TestUpdateUserInfo(t *testing.T) {
 			if tt.body != nil {
 				bodyBytes, err := sonic.Marshal(tt.body)
 				if err != nil {
-					t.Errorf("Expected to turn body into bytes, but got: %v", err)
+					t.Errorf("expected status 200, but got error: %v", err)
+					return
 				}
 				body = bytes.NewReader(bodyBytes)
 			}
@@ -129,13 +126,13 @@ func TestUpdateUserInfo(t *testing.T) {
 
 			if tt.failed {
 				if w.Code == 200 {
-					t.Error("Expected failure, but got status 200")
+					t.Error("Expected failure but got status 200")
 				}
 				return
 			}
 
 			if w.Code != 200 {
-				t.Errorf("Expected status 200; got status %d \nResponse: %v", w.Code, w.Body.String())
+				t.Errorf("Expected status 201; got status %d \nResponse: %v", w.Code, w.Body.String())
 			}
 		})
 	}

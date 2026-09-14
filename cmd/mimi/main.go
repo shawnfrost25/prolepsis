@@ -9,6 +9,7 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	filegrpc "prolepsis/internal/file_grpc"
 	"prolepsis/internal/handler/kitanai"
+	kitanaijob "prolepsis/internal/job/kitanai"
 	"prolepsis/internal/lib"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
@@ -35,6 +39,14 @@ func main() {
 	grpcAddr := os.Getenv("GRPC_PDF_ADDRESS")
 	if grpcAddr == "" {
 		panic("missing 'GRPC_PDF_ADDRESS' inside .env")
+	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		panic("missing 'REDIS_ADDR' inside .env")
+	}
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisPassword == "" {
+		panic("missing 'REDIS_PASSWORD' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -55,7 +67,19 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	auth.Init(queries)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPassword,
+		DB:       0,
+	})
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	auth.Init(queries, redisClient)
 
 	values := kitanai.Mailer{
 		ApiKey: apiKey,
@@ -66,16 +90,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// We close the connection when we close the main
-	if err := pdfClient.Close(); err != nil {
+	defer func() {
+		if err := pdfClient.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	workers := kitanaijob.SetupDeletionWorkers(queries)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Workers: workers,
+		Queues: map[string]river.QueueConfig{
+			river.QueueDefault: {
+				MaxWorkers: 1,
+			},
+		},
+	})
+	if err != nil {
 		panic(err)
 	}
 
 	k := kitanai.Handler{
-		Pool:      pool,
-		Queries:   queries,
-		Mailer:    &values,
-		PdfClient: pdfClient,
+		Pool:        pool,
+		Queries:     queries,
+		Mailer:      &values,
+		PdfClient:   pdfClient,
+		RedisClient: redisClient,
+		RiverClient: riverClient,
 	}
 
 	// We steal the real IP of the user

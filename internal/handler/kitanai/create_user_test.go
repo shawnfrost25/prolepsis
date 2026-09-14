@@ -47,13 +47,22 @@ func TestCreateUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
+	defer pool.Close()
+
+	fallback, err := pool.Begin(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully start a transaction: %v", err)
+	}
+	defer func() {
+		_ = fallback.Rollback(context.Background())
+	}()
 
 	value := kitanai.Mailer{
 		ApiKey: apiKey,
 	}
 
-	queries := db.New(pool)
-	h := kitanai.New(pool, queries, &value, nil)
+	queries := db.New(fallback)
+	h := kitanai.New(nil, queries, &value, nil)
 	auth.Init(queries)
 
 	var yachiyoDate pgtype.Date
@@ -105,7 +114,6 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	r := chi.NewRouter()
-	r.Use(auth.Auth_Middleware)
 	r.Use(auth.Logger_Middleware)
 	r.Post("/users/create", h.CreateUser)
 
@@ -122,7 +130,6 @@ func TestCreateUser(t *testing.T) {
 
 			req := httptest.NewRequest(tt.method, tt.endpoint, body)
 			w := httptest.NewRecorder()
-			req.Header.Set("Authorization", "Bearer 711a89dd67a2fe9e0e8a0972dd3847e29c0bda32bc2cd8b671b4a277dda9c896")
 
 			r.ServeHTTP(w, req)
 
