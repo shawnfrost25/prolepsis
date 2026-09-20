@@ -10,6 +10,7 @@ import (
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/handler/kitanai"
+	"prolepsis/internal/lib"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestGetUserByID(t *testing.T) {
@@ -24,6 +26,14 @@ func TestGetUserByID(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		t.Fatal("Missing 'DATABASE_URL' inside .env")
+	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		t.Fatal("Missing 'redisAddr' inside .env")
+	}
+	redisPSWD := os.Getenv("REDIS_PASSWORD")
+	if redisPSWD == "" {
+		t.Fatal("Missing 'REDIS_PASSWORD' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -42,9 +52,15 @@ func TestGetUserByID(t *testing.T) {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	auth.Init(queries)
 
-	h := kitanai.New(nil, queries, nil, nil)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPSWD,
+		DB:       0,
+	})
+	auth.Init(queries, redisClient)
+
+	h := kitanai.New(nil, queries, nil, nil, redisClient, nil)
 
 	err = h.Queries.TruncateEverythingBeforeTest(timeout)
 	if err != nil {
@@ -54,10 +70,18 @@ func TestGetUserByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
 	}
-	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	// Create sessions
+	err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/create_session.redis")
 	if err != nil {
-		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+		t.Fatalf("Couldn't successfully create user session inside Redis due to this error: %v", err)
 	}
+	// we will clean if everything goes bad.
+	defer func() {
+		err := lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/clean_session.redis")
+		if err != nil {
+			t.Fatalf("Couldn't successfully create user session inside Redis due to this error: %v", err)
+		}
+	}()
 
 	test := []struct {
 		name      string

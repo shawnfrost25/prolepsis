@@ -34,6 +34,21 @@ services:
       - path: ".env"
         required: false
 
+  redis:
+    image: redis:alpine
+    container_name: "prolepsis-redis"
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:6379:6379
+    volumes:
+      - ./redis.conf:/etc/redis/redis.conf
+      - prolepsis_redis:/data
+    env_file:
+      - path: ".env"
+        required: false
+    command: redis-server /etc/redis/redis.conf
+
+
   backend:
     build:
       context: .
@@ -56,3 +71,4 @@ services:
 volumes:
   prolepsis_db:
   prolepsis_backend:
+  prolepsis_redis:

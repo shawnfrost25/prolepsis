@@ -247,7 +247,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 	hashToken = auth.HashToken(token)
 
-	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID, 5184000*time.Second).Result()
+	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			logger.Error().
@@ -279,7 +279,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	inserted_fields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
+	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			logger.Error().
@@ -311,7 +311,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if inserted_fields == 0 {
+	if insertedFields == 0 {
 		logger.Error().
 			Str("user_id", info.ID.String()).
 			Msg("SAdd returned 0 during registration. Token collision or duplicate request detected.")
@@ -319,6 +319,33 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 			Code:    "REGISTRATION_SESSION_ERROR",
 			Message: "An error occurred while establishing your session. Please try logging in.",
 			TraceID: trace,
+		})
+		return
+	}
+	_, err = h.RedisClient.Expire(timeout, "session:id:"+info.ID.String(), 5184000*time.Second).Result()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Msg("timedout while trying to add an expiration time to 'session:id:'")
+			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+				Code:    "REQUEST_TIMEOUT",
+				Message: "Timeout error while trying to add an expiration time",
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "token_expiration_failed").
+			Str("id", info.ID.String()).
+			Msg("couldn't add expiration time for the session id")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Error while trying to add expiration tme to session id",
 		})
 		return
 	}

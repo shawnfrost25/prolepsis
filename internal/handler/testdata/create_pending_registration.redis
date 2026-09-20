@@ -1,0 +1,8 @@
+HSET "pending:registration:token:11034646561cf584826ca4f7b33fe91af93012c912d5286e1f35261496abacb9" name "Yachiyo Runami" sex "female" birth_date "1970-08-31" email "yachiyo@test.com" password_hash '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK'
+EXPIRE "pending:registration:token:11034646561cf584826ca4f7b33fe91af93012c912d5286e1f35261496abacb9" 300
+HSET "pending:registration:token:e54d08681c4abd0e0b66c3597daa4f3bd7771edcacf117ca600289a52db80553" name "Hatsune Miku" sex "female" birth_date "2007-08-31" email "miku@test.com" password_hash '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK'
+EXPIRE "pending:registration:token:e54d08681c4abd0e0b66c3597daa4f3bd7771edcacf117ca600289a52db80553" 300
+HSET "pending:registration:token:34219c03f80c63a0f633286c5cc9a57eaba06a8370d1cf923c3b0de660f38c95" name "Kasane Teto" sex "female" birth_date "1996-04-01" email "teto@test.com" password_hash '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK'
+EXPIRE "pending:registration:token:34219c03f80c63a0f633286c5cc9a57eaba06a8370d1cf923c3b0de660f38c95" 0
+HSET "pending:registration:token:ecf277e9cb08974df4daab24b4c26c79e43fa266c1e13ce34da288b0900dfd6e" name "Kasane Teto" sex "female" birth_date "1970-04-01" email "shiori@test.com" password_hash '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK'
+EXPIRE "pending:registration:token:ecf277e9cb08974df4daab24b4c26c79e43fa266c1e13ce34da288b0900dfd6e" 300

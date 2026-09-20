@@ -84,6 +84,21 @@ func (h *Handler) ExtractPdf(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			logger.Error().
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "could_not_close_file").
+				Msg("couldn't successfully close the given file")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Couldn't close the given file",
+				TraceID: u.Trace,
+			})
+			return
+		}
+	}()
 
 	readLimit := io.LimitReader(file, maxLimit)
 	rawPdf, err := io.ReadAll(readLimit)

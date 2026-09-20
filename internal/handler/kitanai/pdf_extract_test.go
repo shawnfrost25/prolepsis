@@ -12,12 +12,14 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	filegrpc "prolepsis/internal/file_grpc"
 	"prolepsis/internal/handler/kitanai"
+	"prolepsis/internal/lib"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestExtractPdf(t *testing.T) {
@@ -29,6 +31,14 @@ func TestExtractPdf(t *testing.T) {
 	pdfClient := os.Getenv("GRPC_PDF_ADDRESS")
 	if pdfClient == "" {
 		t.Fatal("Missing 'GRPC_PDF_ADDRESS'")
+	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		t.Fatal("Missing 'redisAddr' inside .env")
+	}
+	redisPSWD := os.Getenv("REDIS_PASSWORD")
+	if redisPSWD == "" {
+		t.Fatal("Missing 'REDIS_PASSWORD' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -47,13 +57,19 @@ func TestExtractPdf(t *testing.T) {
 
 	queries := db.New(pool)
 
-	client, err := filegrpc.NewClient(pdfClient)
+	grpcClient, err := filegrpc.NewClient(pdfClient)
 	if err != nil {
 		t.Fatalf("Expected to run flawlessly, got: %v", err)
 	}
 
-	h := kitanai.New(nil, queries, nil, client)
-	auth.Init(queries)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPSWD,
+		DB:       0,
+	})
+
+	h := kitanai.New(nil, queries, nil, grpcClient, redisClient, nil)
+	auth.Init(queries, redisClient)
 
 	err = h.Queries.TruncateEverythingBeforeTest(timeout)
 	if err != nil {
@@ -63,10 +79,16 @@ func TestExtractPdf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
 	}
-	err = h.Queries.InsertDummiesInsideSessions(timeout)
+	err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/create_session.redis")
 	if err != nil {
-		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
 	}
+	defer func() {
+		err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/clean_session.redis")
+		if err != nil {
+			t.Fatalf("Couldn't successfully clean mock session token, due to error: %v", err)
+		}
+	}()
 
 	test := []struct {
 		name     string
