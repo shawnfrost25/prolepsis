@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestLoginUser(t *testing.T) {
@@ -23,6 +24,14 @@ func TestLoginUser(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		t.Fatal("Missing 'DATABASE_URL' inside .env")
+	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		t.Fatal("Missing 'redisAddr' inside .env")
+	}
+	redisPSWD := os.Getenv("REDIS_PASSWORD")
+	if redisPSWD == "" {
+		t.Fatal("Missing 'REDIS_PASSWORD' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -41,9 +50,14 @@ func TestLoginUser(t *testing.T) {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	auth.Init(queries)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPSWD,
+		DB:       0,
+	})
+	auth.Init(queries, redisClient)
 
-	h := kitanai.New(nil, queries, nil, nil)
+	h := kitanai.New(nil, queries, nil, nil, redisClient, nil)
 
 	err = h.Queries.TruncateEverythingBeforeTest(timeout)
 	if err != nil {
@@ -52,10 +66,6 @@ func TestLoginUser(t *testing.T) {
 	err = h.Queries.InsertDummiesInsideUsers(timeout)
 	if err != nil {
 		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
-	}
-	err = h.Queries.InsertDummiesInsideSessions(timeout)
-	if err != nil {
-		t.Fatalf("Couldn't successfully insert users session inside the database due to this error: %v", err)
 	}
 
 	test := []struct {

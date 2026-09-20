@@ -11,19 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const deleteUserByRequest = `-- name: DeleteUserByRequest :exec
-DELETE FROM users
-WHERE id = (
-    SELECT id FROM pending_deletions WHERE id = $1::uuid AND is_processed = false
-)
-`
-
-// We delete away the user
-func (q *Queries) DeleteUserByRequest(ctx context.Context, userID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUserByRequest, userID)
-	return err
-}
-
 const insertDeletionRequest = `-- name: InsertDeletionRequest :one
 INSERT INTO pending_deletions (user_id, requested_by, clarification, requested_at, scheduled_at, is_processed)
 VALUES (
@@ -55,4 +42,16 @@ func (q *Queries) InsertDeletionRequest(ctx context.Context, arg InsertDeletionR
 		&i.IsProcessed,
 	)
 	return i, err
+}
+
+const updateIsProcessedField = `-- name: UpdateIsProcessedField :exec
+UPDATE pending_deletions
+SET is_processed = true
+WHERE id = $1::uuid
+`
+
+// We gotta say who got deleted, no?
+func (q *Queries) UpdateIsProcessedField(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, updateIsProcessedField, userID)
+	return err
 }

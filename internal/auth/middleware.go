@@ -116,7 +116,7 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		beforeExpiration, err := red.TTL(timeout, "session:token:"+hashToken).Result()
+		beforeExpirationT, err := red.TTL(timeout, "session:token:"+hashToken).Result()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
@@ -137,8 +137,51 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if beforeExpiration < 2592000*time.Second {
+		if beforeExpirationT < 2592000*time.Second {
 			_, err := red.Expire(timeout, "session:token:"+hashToken, 5184000*time.Second).Result()
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+						Code:    "INTERNAL_SERVER_ERROR",
+						Message: "Couldn't update the token due to timeout",
+					})
+					return
+				}
+				log.Error().Err(err).Msg("Token update failed")
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "INTERNAL_SERVER_ERROR",
+					Message: "An error occurred while fetching the TTL of the token",
+					Details: map[string]string{
+						"reason": "database error",
+						"fix":    "Please try again later",
+					},
+				})
+				return
+			}
+		}
+		beforeExpirationID, err := red.TTL(timeout, "session:id:"+uuid.String()).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+					Code:    "INTERNAL_SERVER_ERROR",
+					Message: "Couldn't obtain token TTL due to timeout",
+				})
+				return
+			}
+			log.Error().Err(err).Msg("CheckToken failed")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An error occurred while fetching the TTL of the token",
+				Details: map[string]string{
+					"reason": "database error",
+					"fix":    "Please try again later",
+				},
+			})
+			return
+		}
+
+		if beforeExpirationID < 2592000*time.Second {
+			_, err := red.Expire(timeout, "session:id:"+uuid.String(), 5184000*time.Second).Result()
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
 					lib.Pretty(w, http.StatusInternalServerError, lib.Error{

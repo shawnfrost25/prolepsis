@@ -10,9 +10,8 @@ VALUES (
     false
 ) RETURNING *;
 
--- We delete away the user
--- name: DeleteUserByRequest :exec
-DELETE FROM users
-WHERE id = (
-    SELECT id FROM pending_deletions WHERE id = sqlc.arg('user_id')::uuid AND is_processed = false
-);
+-- We gotta say who got deleted, no?
+-- name: UpdateIsProcessedField :exec
+UPDATE pending_deletions
+SET is_processed = true
+WHERE id = sqlc.arg('user_id')::uuid;

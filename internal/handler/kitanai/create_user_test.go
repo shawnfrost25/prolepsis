@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -32,6 +33,14 @@ func TestCreateUser(t *testing.T) {
 	email := os.Getenv("FROM_EMAIL")
 	if email == "" {
 		t.Fatal("missing 'FROM_EMAIL' inside .env")
+	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		t.Fatal("mmissing 'REDIS_ADDR' inside .env")
+	}
+	redisPSWD := os.Getenv("REDIS_PASSWORD")
+	if redisPSWD == "" {
+		t.Fatal("Missing 'REDIS_PASSWORD' inside .env")
 	}
 	timeout, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -62,8 +71,13 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	queries := db.New(fallback)
-	h := kitanai.New(nil, queries, &value, nil)
-	auth.Init(queries)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPSWD,
+		DB:       0,
+	})
+	h := kitanai.New(nil, queries, &value, nil, redisClient, nil)
+	auth.Init(queries, redisClient)
 
 	var yachiyoDate pgtype.Date
 	// It should've been 08-32 - not 31!!!

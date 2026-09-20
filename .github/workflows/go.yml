@@ -62,6 +62,8 @@ jobs:
       FROM_EMAIL: "${{ secrets.FROM_EMAIL }}"
       RESEND_API_KEY: "${{ secrets.RESEND_API_KEY }}"
       GRPC_PDF_ADDRESS: "${{ secrets.GRPC_PDF_ADDRESS }}"
+      REDIS_PASSWORD: "${{ secrets.REDIS_PASSWORD }}"
+      REDIS_ADDR: "${{ secrets.REDIS_ADDR }}"
     steps:
       - name: "Check out repo code"
         uses: actions/checkout@v4
@@ -87,6 +89,10 @@ jobs:
       - name: "Running Atlas"
         run: |
           atlas migrate apply --dir "file://./internal/db/migrations" --url "${{ env.DATABASE_URL }}"
+
+      - name: "Downloading 'redis-cli'"
+        run: |
+          sudo apt-get update && sudo apt-get install -y redis-tools
 
       - name: "Run code tester"
         run: |

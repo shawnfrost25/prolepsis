@@ -261,7 +261,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf(
 		"Hello %s,\n\n"+
 			"Thank you for signing up for %s!\n\n"+
-			"This verification link will expire in 3 minutes. Please click on the provided link: http://127.0.0.1:8080/users/create/verify/%v\n\n"+
+			"This verification link will expire in 5 minutes. Please click on the provided link: http://127.0.0.1:8080/users/create/verify/%v\n\n"+
 			"If you did not create an account, you can safely ignore this message.\n\n"+
 			"Best regards,\nThe %s Team",
 		*req.Name,
@@ -306,7 +306,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	insertedFields, err := h.RedisClient.HSetEXWithArgs(timeout, "pending:registration:token:"+hashToken, &redis.HSetEXOptions{
 		Condition:      "FNX",
 		ExpirationType: redis.HSetEXExpirationEX,
-		ExpirationVal:  180,
+		ExpirationVal:  300,
 	},
 		"name", *req.Name,
 		"sex", *req.Sex,
@@ -354,20 +354,6 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				"reason": "key already exists inside the pending registrations",
 				"fix":    "don't try registrating, simply enter the email and click the link send by us",
 			},
-			TraceID: trace,
-		})
-		return
-	}
-
-	if insertedFields != 5 {
-		logger.Error().
-			Int64("inserted", insertedFields).
-			Int("status", http.StatusInternalServerError).
-			Msg("unexpected number of hash fields inserted into Redis")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "PARTIAL_WRITE_ERROR",
-			Message: "Failed to write complete registration details into cache",
 			TraceID: trace,
 		})
 		return

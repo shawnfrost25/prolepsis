@@ -98,12 +98,12 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 
 const secondStepRegisterUser = `-- name: SecondStepRegisterUser :one
 INSERT INTO users (id, name, display_name, sex, birth_date, email, password_hash, created_at)
-VALUES ($1::uid, $2::text, $3::text, $4, $5::date, $6::text, $7::text, now())
+VALUES ($1::uuid, $2::text, $3::text, $4, $5::date, $6::text, $7::text, now())
 RETURNING id, name, display_name, sex, birth_date, email, created_at
 `
 
 type SecondStepRegisterUserParams struct {
-	ID           interface{}
+	ID           pgtype.UUID
 	Name         string
 	DisplayName  string
 	Sex          string
