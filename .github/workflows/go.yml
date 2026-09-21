@@ -94,6 +94,14 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y redis-tools
 
+      - name: "Downloading River"
+        run: |
+          go install github.com/riverqueue/river/cmd/river@v0.47.0
+
+      - name: "Running River migration"
+        run: |
+          river migrate-up --database-url "${{ env.DATABASE_URL }}"
+
       - name: "Run code tester"
         run: |
           go test -race ./...
