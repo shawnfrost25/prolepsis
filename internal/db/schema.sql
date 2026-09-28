@@ -46,3 +46,56 @@ CREATE TABLE pending_deletions (
     scheduled_at TIMESTAMPTZ NOT NULL,
     is_processed BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- We create this table just to hold the info about the repo's license, nothing else.
+CREATE TABLE github_repo_license(
+    license_key TEXT NOT NULL,
+    CONSTRAINT github_license_license_key_pkey PRIMARY KEY (license_key),
+    name TEXT NOT NULL,
+    spdx_id TEXT NOT NULL,
+    url TEXT,
+    node_id TEXT NOT NULL
+);
+
+-- A simple table containing the GitHub information about the user
+CREATE TABLE github_user(
+    user_id UUID NOT NULL,
+    CONSTRAINT github_user_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    github_id BIGINT NOT NULL,
+    CONSTRAINT github_user_github_id_pkey PRIMARY KEY (github_id),
+    name TEXT NOT NULL,
+    CONSTRAINT github_user_github_name_key UNIQUE (name),
+    avatar_url TEXT NOT NULL,
+    html_url TEXT NOT NULL,
+    company TEXT,
+    email TEXT,
+    hireable BOOLEAN,
+    bio TEXT,
+    followers INT DEFAULT 0,
+    total_public_repos SMALLINT NOT NULL,
+    total_private_repos SMALLINT NOT NULL,
+    total_repos SMALLINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+
+-- A simple table to hold the repositories of the user
+CREATE TABLE github_repo(
+    github_id BIGINT NOT NULL,
+    CONSTRAINT github_repo_github_user_id_fkey FOREIGN KEY (github_id) REFERENCES github_user(github_id),
+    repo_id BIGINT NOT NULL,
+    CONSTRAINT github_repo_repo_id_pkey PRIMARY KEY (repo_id),
+    name TEXT NOT NULL,
+    html_url TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    pushed_at TIMESTAMPTZ NOT NULL,
+    stars INT DEFAULT 0,
+    watches INT DEFAULT 0,
+    forks_count INT DEFAULT 0,
+    main_language TEXT,
+    license_key TEXT,
+    CONSTRAINT github_repo_license_key_fkey FOREIGN KEY (license_key) REFERENCES github_repo_license(license_key) ON DELETE SET NULL,
+    topic TEXT[] NOT NULL DEFAULT '{}',
+    archived BOOLEAN NOT NULL,
+    visibility TEXT NOT NULL
+);

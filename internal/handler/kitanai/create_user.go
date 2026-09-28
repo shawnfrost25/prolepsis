@@ -261,7 +261,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf(
 		"Hello %s,\n\n"+
 			"Thank you for signing up for %s!\n\n"+
-			"This verification link will expire in 5 minutes. Please click on the provided link: http://127.0.0.1:8080/users/create/verify/%v\n\n"+
+			"This verification link will expire in 5 minutes. Please click on the provided link: http://127.0.0.1:8080/users/create/verify?token=%v\n\n"+
 			"If you did not create an account, you can safely ignore this message.\n\n"+
 			"Best regards,\nThe %s Team",
 		*req.Name,

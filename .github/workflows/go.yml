@@ -100,7 +100,7 @@ jobs:
 
       - name: "Running River migration"
         run: |
-          river migrate-up --database-url "${{ env.DATABASE_URL }}"
+          river migrate-up --database-url "${{ env.DATABASE_URL }}"s
 
       - name: "Run code tester"
         run: |

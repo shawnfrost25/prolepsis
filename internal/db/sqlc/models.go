@@ -55,6 +55,49 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type GithubRepo struct {
+	GithubID     int64
+	RepoID       int64
+	Name         string
+	HtmlUrl      string
+	Description  *string
+	CreatedAt    pgtype.Timestamptz
+	PushedAt     pgtype.Timestamptz
+	Stars        *int32
+	Watches      *int32
+	ForksCount   *int32
+	MainLanguage *string
+	LicenseKey   *string
+	Topic        []string
+	Archived     bool
+	Visibility   string
+}
+
+type GithubRepoLicense struct {
+	LicenseKey string
+	Name       string
+	SpdxID     string
+	Url        *string
+	NodeID     string
+}
+
+type GithubUser struct {
+	UserID            pgtype.UUID
+	GithubID          int64
+	Name              string
+	AvatarUrl         string
+	HtmlUrl           string
+	Company           *string
+	Email             *string
+	Hireable          *bool
+	Bio               *string
+	Followers         *int32
+	TotalPublicRepos  int16
+	TotalPrivateRepos int16
+	TotalRepos        int16
+	CreatedAt         pgtype.Timestamptz
+}
+
 type PendingDeletion struct {
 	UserID        pgtype.UUID
 	RequestedBy   pgtype.UUID

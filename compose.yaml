@@ -27,7 +27,7 @@ services:
     container_name: "prolepsis-rust-sidecar"
     restart: unless-stopped
     environment:
-      GRPC_PDF_ADDRESS: ${GRPC_PDF_ADDRESS}
+      GRPC_PDF_ADDRESS: 0.0.0.0:8081
     ports:
       - 127.0.0.1:8081:8081
     env_file:
@@ -67,6 +67,13 @@ services:
         condition: service_healthy
       rust-sidecar:
         condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      - GRPC_PDF_ADDRESS=rust-sidecar:8081
+      - REDIS_ADDR=redis:6379
+      - REDIS_HOST=redis
 
 volumes:
   prolepsis_db:

@@ -90,38 +90,30 @@ func TestVerifyRegistration(t *testing.T) {
 		{
 			name:     "Trying to verify if Hatsune Miku is valid",
 			method:   "POST",
-			endpoint: "/users/create/verify",
+			endpoint: "/users/create/verify?token=pending0000000000000000000000002",
 			failed:   false,
-			body: map[string]any{
-				"token": "pending0000000000000000000000002",
-			},
+			body:     nil,
 		},
 		{
 			name:     "Failing due to invalid token",
 			method:   "POST",
-			endpoint: "/users/create/verify",
+			endpoint: "/users/create/verify?token=pending0000000000000000000000999",
 			failed:   true,
-			body: map[string]any{
-				"token": "pending0000000000000000000000999",
-			},
+			body:     nil,
 		},
 		{
 			name:     "Failing due to missing token",
 			method:   "POST",
 			endpoint: "/users/create/verify",
 			failed:   true,
-			body: map[string]any{
-				"token": "",
-			},
+			body:     nil,
 		},
 		{
 			name:     "Failing due to expired token (Kasane Teto)",
 			method:   "POST",
-			endpoint: "/users/create/verify",
+			endpoint: "/users/create/verify?token=pending0000000000000000000000003",
 			failed:   true,
-			body: map[string]any{
-				"token": "pending0000000000000000000000003",
-			},
+			body:     nil,
 		},
 	}
 
