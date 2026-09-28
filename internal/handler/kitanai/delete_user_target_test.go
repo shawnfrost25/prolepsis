@@ -104,30 +104,9 @@ func TestDeleteUser(t *testing.T) {
 		body      map[string]any
 	}{
 		{
-			name:      "Trying to delete Asya Shubina (as Asya Shubina, a self-deletion)",
-			method:    "DELETE",
-			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000009",
-			authToken: "Bearer 00000000000000000000000000000009",
-			failed:    false,
-			body: map[string]any{
-				"status":        "CONFIRM",
-				"clarification": "Uhm, the app sucks, like...a lot, slop",
-			},
-		},
-		{
-			name:      "Trying to delete Hinako (owner) as Airi (user) - Failed",
-			method:    "DELETE",
-			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000006",
-			authToken: "Bearer 00000000000000000000000000000005",
-			failed:    true,
-			body: map[string]any{
-				"clarification": "Got ostracized due to her, delete her",
-			},
-		},
-		{
 			name:      "Trying to delete Ethan Winters (worker) as Chris Redfield (admin)",
 			method:    "DELETE",
-			endpoint:  "/users/delete/00000000-0000-0000-0000-000000000015",
+			endpoint:  "/users/delete/target/00000000-0000-0000-0000-000000000015",
 			authToken: "Bearer 00000000000000000000000000000016",
 			failed:    false,
 			body: map[string]any{
@@ -135,12 +114,22 @@ func TestDeleteUser(t *testing.T) {
 				"clarification": "Ethan, confirmed death after the encounter with Miranda, inactive account",
 			},
 		},
+		{
+			name:      "Trying to delete Hinako (owner) as Airi (user) - Failed",
+			method:    "DELETE",
+			endpoint:  "/users/delete/target/00000000-0000-0000-0000-000000000006",
+			authToken: "Bearer 00000000000000000000000000000005",
+			failed:    true,
+			body: map[string]any{
+				"clarification": "Got ostracized due to her, delete her",
+			},
+		},
 	}
 
 	r := chi.NewRouter()
 	r.Use(auth.Auth_Middleware)
 	r.Use(auth.Logger_Middleware)
-	r.Delete("/users/delete/{id}", h.DeleteUser)
+	r.Delete("/users/delete/target/{id}", h.DeleteUserTarget)
 
 	for _, tt := range test {
 		t.Run(tt.name, func(t *testing.T) {
@@ -168,7 +157,7 @@ func TestDeleteUser(t *testing.T) {
 			}
 
 			if w.Code != 200 {
-				t.Errorf("Expected status 201; got status %d \nResponse: %v", w.Code, w.Body.String())
+				t.Errorf("Expected status 200; got status %d \nResponse: %v", w.Code, w.Body.String())
 			}
 		})
 	}

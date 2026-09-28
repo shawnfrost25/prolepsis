@@ -8,6 +8,7 @@ import (
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	filegrpc "prolepsis/internal/file_grpc"
+	oauthGithub "prolepsis/internal/handler/github"
 	"prolepsis/internal/handler/kitanai"
 	kitanaijob "prolepsis/internal/job/kitanai"
 	"prolepsis/internal/lib"
@@ -24,6 +25,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 func main() {
@@ -48,10 +51,19 @@ func main() {
 	if redisPassword == "" {
 		panic("missing 'REDIS_PASSWORD' inside .env")
 	}
+	clientID := os.Getenv("CLIENT_ID")
+	if clientID == "" {
+		panic("missing 'CLIENT_ID' inside .env")
+	}
+	clientSecret := os.Getenv("CLIENT_SECRET")
+	if clientSecret == "" {
+		panic("missing 'CLIENT_SECRET' inside .env")
+	}
+
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	lib.Init(zerolog.InfoLevel)
+	lib.Init(zerolog.DebugLevel)
 
 	config, err := pgxpool.ParseConfig(databaseUrl)
 	if err != nil {
@@ -118,6 +130,18 @@ func main() {
 		RiverClient: riverClient,
 	}
 
+	ghConfig := oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Endpoint:     github.Endpoint,
+		RedirectURL:  "http://127.0.0.1:8080/oauth/github/callback",
+		Scopes:       []string{"read:user", "repo"},
+	}
+
+	httpClient := http.Client{Timeout: 10 * time.Second}
+
+	g := oauthGithub.GH_New(redisClient, ghConfig, httpClient, queries)
+
 	// We steal the real IP of the user
 	clientIPKey := func(r *http.Request) (string, error) {
 		startIP := middleware.GetClientIP(r.Context())
@@ -140,7 +164,7 @@ func main() {
 		r.Use(authLimiter)
 
 		r.Post("/users/create", k.CreateUser)
-		r.Post("/users/create/verify", k.VerifyRegistration)
+		r.Get("/users/create/verify", k.VerifyRegistration)
 		r.Post("/users/login", k.LoginUser)
 	})
 
@@ -149,9 +173,20 @@ func main() {
 
 		r.With(readLimiter).Get("/users/{id}", k.GetUserByID)
 		r.With(readLimiter).Get("/users", k.GetUserByQuery)
-		r.With(authLimiter).Delete("/users/delete", k.DeleteUser)
+		r.With(authLimiter).Delete("/users/delete/target/{id}", k.DeleteUserTarget)
+		r.With(authLimiter).Delete("/users/delete/self", k.DeleteUserSelf)
 		r.With(mutationLimiter).Patch("/users/update", k.UpdateUserInfo)
 		r.With(readLimiter).Post("/users/pdf/extract", k.ExtractPdf)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Route("/oauth", func(r chi.Router) {
+			r.Use(auth.Auth_Middleware)
+
+			r.With(authLimiter).Post("/github/redirect", g.GitHubRedirect)
+			r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
+			r.With(authLimiter).Post("/github/callback/mock", g.GitHubCallbackMock)
+		})
 	})
 
 	fmt.Print("Successfully running on port 8080")

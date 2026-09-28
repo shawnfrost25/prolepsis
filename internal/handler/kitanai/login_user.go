@@ -206,14 +206,6 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info().
-		Int("status", http.StatusOK).
-		Str("email", req.Email).
-		Msg("successfully created session")
-	lib.Pretty(w, http.StatusOK, LoginResponse{
-		Status: "success",
-		Token:  token,
-	})
 	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {

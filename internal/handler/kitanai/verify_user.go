@@ -9,16 +9,11 @@ import (
 	"prolepsis/internal/lib"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
-
-type VerificationRequest struct {
-	Token string `json:"token"`
-}
 
 type VerificationResponse struct {
 	Status string `json:"status"`
@@ -44,52 +39,33 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req VerificationRequest
-	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
+	token := r.URL.Query().Get("token")
+	if token == "" {
 		logger.Warn().
-			Err(err).
-			Int("status", http.StatusBadRequest).
-			Str("cause", "invalid_decode_request").
-			Msg("couldn't decode request")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The given request is invalid. Failed to decode the request.",
+			Int("status", http.StatusUnauthorized).
+			Str("cause", "missing_token_query").
+			Msg("no token query was provided via the request")
+		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
+			Code:    "UNAUTHORIZED",
+			Message: "No token was provided via the request",
 			Details: map[string]string{
-				"reason": "invalid request",
-				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
+				"reason": "missing token",
+				"fix":    "enter the email given as registration and click the link given by 'Prolepsis'",
 			},
-			TraceID: trace,
 		})
 		return
 	}
 
-	if req.Token == "" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "missing_arguments").
-			Msg("missing token in request")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "There is no token in the request, please retry",
-			Details: map[string]string{
-				"reason": "missing token",
-				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
-			},
-			TraceID: trace,
-		})
-		return
-	}
 	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	hashToken := auth.HashToken(req.Token)
+	hashToken := auth.HashToken(token)
 
 	if len(hashToken) != 64 {
 		logger.Warn().
 			Int("status", http.StatusBadRequest).
 			Str("cause", "invalid_token_request").
-			Str("token", req.Token).
+			Str("token", token).
 			Msg("the given token is malformed")
 		lib.Pretty(w, http.StatusBadRequest, lib.Error{
 			Code:    "BAD_REQUEST",
@@ -231,7 +207,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.CreateToken()
+	tokenS, err := auth.CreateToken()
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -245,7 +221,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	hashToken = auth.HashToken(token)
+	hashToken = auth.HashToken(tokenS)
 
 	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
@@ -359,6 +335,6 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	// Add the thingy in the "Authorization: Bearer" header
 	lib.Pretty(w, http.StatusCreated, VerificationResponse{
 		Status: "success",
-		Token:  token,
+		Token:  tokenS,
 	})
 }
