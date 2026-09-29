@@ -64,6 +64,7 @@ jobs:
       GRPC_PDF_ADDRESS: "${{ secrets.GRPC_PDF_ADDRESS }}"
       REDIS_PASSWORD: "${{ secrets.REDIS_PASSWORD }}"
       REDIS_ADDR: "${{ secrets.REDIS_ADDR }}"
+      GITHUB_TOKEN: "${{ secrets.PAT }}"
     steps:
       - name: "Check out repo code"
         uses: actions/checkout@v4
@@ -100,7 +101,7 @@ jobs:
 
       - name: "Running River migration"
         run: |
-          river migrate-up --database-url "${{ env.DATABASE_URL }}"s
+          river migrate-up --database-url "${{ env.DATABASE_URL }}"
 
       - name: "Run code tester"
         run: |

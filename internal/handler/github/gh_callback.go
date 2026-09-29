@@ -264,6 +264,22 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer func() {
+		err = respUser.Body.Close()
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_response_closure").
+				Msg("failed to close the user response conncection")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error caused user response connection issues, couldn't close body",
+				TraceID: u.Trace,
+			})
+			return
+		}
+	}()
 
 	totalRepos := reqUser.GitHubPrivateRepos + reqUser.GitHubPublicRepos
 	if totalRepos == 0 {
@@ -449,7 +465,20 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respR.Body.Close()
+		err = respR.Body.Close()
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_response_closure").
+				Msg("failed to close the respository response conncection")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error caused repository response connection issues, couldn't close body",
+				TraceID: u.Trace,
+			})
+			return
+		}
 
 		reqRepo := repos[0]
 

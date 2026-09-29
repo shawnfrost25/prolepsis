@@ -64,7 +64,19 @@ func TestGitHubCallback(t *testing.T) {
 
 	h := oauthGithub.GH_New(redisClient, oauth2.Config{}, httpClient, queries)
 	auth.Init(queries, redisClient)
+	err = h.Queries.DeleteGitHubMock(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully clean mock github oauth, due to error: %v", err)
+	}
 
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
+	}
 	err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/create_session.redis")
 	if err != nil {
 		t.Fatalf("Ecxpected to create sessions, but ended up failing due to error: %v", err)
