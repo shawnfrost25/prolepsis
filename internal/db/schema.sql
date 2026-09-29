@@ -99,3 +99,8 @@ CREATE TABLE github_repo(
     archived BOOLEAN NOT NULL,
     visibility TEXT NOT NULL
 );
+
+CREATE TABLE github_repo_webhook(
+    github_repo_id BIGINT NOT NULL,
+    CONSTRAINT github_repo_webhook_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE
+)
