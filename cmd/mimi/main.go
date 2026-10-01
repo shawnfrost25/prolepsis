@@ -167,6 +167,7 @@ func main() {
 		r.Get("/users/create/verify", k.VerifyRegistration)
 		r.Post("/users/login", k.LoginUser)
 		r.Post("/oauth/github/webhook/mock", oauthGithub.MockGithubWebHook)
+		r.Post("/oauth/github/webhook", g.GitHubWebhook)
 	})
 
 	r.Group(func(r chi.Router) {
