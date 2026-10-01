@@ -81,6 +81,34 @@ type GithubRepoLicense struct {
 	NodeID     string
 }
 
+type GithubRepoPush struct {
+	ID           pgtype.UUID
+	GithubRepoID int64
+	GithubUserID int64
+	HookID       int64
+	FullName     string
+	Ref          string
+	BeforeSha    *string
+	AfterSha     *string
+	HeadCommitID *string
+	Compare      string
+	Forced       bool
+	Created      bool
+	Deleted      bool
+	PushedAt     pgtype.Timestamptz
+}
+
+type GithubRepoPushCommit struct {
+	PushID      pgtype.UUID
+	CommitSha   string
+	Message     string
+	Added       []string
+	Removed     []string
+	Modified    []string
+	Url         string
+	CommittedAt pgtype.Timestamptz
+}
+
 type GithubUser struct {
 	UserID            pgtype.UUID
 	GithubID          int64

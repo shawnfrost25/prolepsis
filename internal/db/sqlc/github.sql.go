@@ -12,7 +12,7 @@ import (
 )
 
 const deleteGitHubMock = `-- name: DeleteGitHubMock :exec
-TRUNCATE TABLE github_user, github_repo, github_repo_license
+TRUNCATE TABLE github_user, github_repo, github_repo_license, github_repo_push, github_repo_push_commit CASCADE
 `
 
 func (q *Queries) DeleteGitHubMock(ctx context.Context) error {
@@ -44,6 +44,81 @@ func (q *Queries) InsertGitHubLicenseInfo(ctx context.Context, arg InsertGitHubL
 		arg.NodeID,
 	)
 	return err
+}
+
+const insertGitHubPushCommitInfo = `-- name: InsertGitHubPushCommitInfo :exec
+INSERT INTO github_repo_push_commit(push_id, commit_sha, message, added, removed, modified, url, committed_at)
+VALUES(
+    $1::uuid, $2::text, $3::text, $4::text[], $5::text[], $6::text[], $7::text, $8::timestamptz
+)
+`
+
+type InsertGitHubPushCommitInfoParams struct {
+	PushID      pgtype.UUID
+	CommitSha   string
+	Message     string
+	Added       []string
+	Removed     []string
+	Modified    []string
+	Url         string
+	CommittedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertGitHubPushCommitInfo(ctx context.Context, arg InsertGitHubPushCommitInfoParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubPushCommitInfo,
+		arg.PushID,
+		arg.CommitSha,
+		arg.Message,
+		arg.Added,
+		arg.Removed,
+		arg.Modified,
+		arg.Url,
+		arg.CommittedAt,
+	)
+	return err
+}
+
+const insertGitHubPushInfo = `-- name: InsertGitHubPushInfo :one
+INSERT INTO github_repo_push(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
+VALUES (
+    $1::bigint, $2::bigint, $3::bigint, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text, $10::boolean, $11::boolean, $12::boolean
+)
+RETURNING id
+`
+
+type InsertGitHubPushInfoParams struct {
+	GithubRepoID int64
+	GithubUserID int64
+	HookID       int64
+	FullName     string
+	Ref          string
+	BeforeSha    *string
+	AfterSha     *string
+	HeadCommitID *string
+	Compare      string
+	Forced       bool
+	Created      bool
+	Deleted      bool
+}
+
+func (q *Queries) InsertGitHubPushInfo(ctx context.Context, arg InsertGitHubPushInfoParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertGitHubPushInfo,
+		arg.GithubRepoID,
+		arg.GithubUserID,
+		arg.HookID,
+		arg.FullName,
+		arg.Ref,
+		arg.BeforeSha,
+		arg.AfterSha,
+		arg.HeadCommitID,
+		arg.Compare,
+		arg.Forced,
+		arg.Created,
+		arg.Deleted,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertGitHubRepoInfo = `-- name: InsertGitHubRepoInfo :exec

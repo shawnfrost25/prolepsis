@@ -100,7 +100,35 @@ CREATE TABLE github_repo(
     visibility TEXT NOT NULL
 );
 
-CREATE TABLE github_repo_webhook(
+CREATE TABLE github_repo_push(
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    CONSTRAINT github_repo_push_id PRIMARY KEY (id),
     github_repo_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_webhook_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE
+    CONSTRAINT github_repo_webhook_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE,
+    github_user_id BIGINT NOT NULL,
+    CONSTRAINT github_repo_webhook_github_user_id FOREIGN KEY (github_user_id) REFERENCES github_user(github_id) ON DELETE CASCADE,
+    hook_id BIGINT NOT NULL,
+    full_name TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    before_sha TEXT,
+    after_sha TEXT,
+    head_commit_id TEXT,
+    compare TEXT NOT NULL,
+    forced boolean NOT NULL DEFAULT false,
+    created boolean NOT NULL DEFAULT false,
+    deleted boolean NOT NULL DEFAULT false,
+    pushed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE github_repo_push_commit(
+    push_id UUID NOT NULL,
+    CONSTRAINT github_repo_push_commit_push_id_fkey FOREIGN KEY (push_id) REFERENCES github_repo_push(id) ON DELETE CASCADE,
+    commit_sha TEXT NOT NULL,
+    CONSTRAINT github_repo_push_commit_commit_sha_pkey PRIMARY KEY (commit_sha),
+    message TEXT NOT NULL,
+    added TEXT[] DEFAULT '{}',
+    removed TEXT[] DEFAULT '{}',
+    modified TEXT[] DEFAULT '{}',
+    url TEXT NOT NULL,
+    committed_at TIMESTAMPTZ NOT NULL
 )

@@ -55,5 +55,18 @@ SELECT EXISTS (
     SELECT 1 FROM github_repo_license WHERE license_key = $1
 );
 
+-- name: InsertGitHubPushInfo :one
+INSERT INTO github_repo_push(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
+VALUES (
+    sqlc.arg('github_repo_id')::bigint, sqlc.arg('github_user_id')::bigint, sqlc.arg('hook_id')::bigint, sqlc.arg('full_name')::text, sqlc.arg('ref')::text, sqlc.narg('before_sha')::text, sqlc.narg('after_sha')::text, sqlc.narg('head_commit_id')::text, sqlc.arg('compare')::text, sqlc.arg('forced')::boolean, sqlc.arg('created')::boolean, sqlc.arg('deleted')::boolean
+)
+RETURNING id;
+
+-- name: InsertGitHubPushCommitInfo :exec
+INSERT INTO github_repo_push_commit(push_id, commit_sha, message, added, removed, modified, url, committed_at)
+VALUES(
+    sqlc.arg('push_id')::uuid, sqlc.arg('commit_sha')::text, sqlc.arg('message')::text, sqlc.arg('added')::text[], sqlc.arg('removed')::text[], sqlc.arg('modified')::text[], sqlc.arg('url')::text, sqlc.arg('committed_at')::timestamptz
+);
+
 -- name: DeleteGitHubMock :exec
-TRUNCATE TABLE github_user, github_repo, github_repo_license;
+TRUNCATE TABLE github_user, github_repo, github_repo_license, github_repo_push, github_repo_push_commit CASCADE;
