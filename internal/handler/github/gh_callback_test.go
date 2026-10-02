@@ -73,6 +73,10 @@ func TestGitHubCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
 	}
+	err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/clean_session.redis")
+	if err != nil {
+		t.Fatalf("Couldn't successfully clean mock session token, due to error: %v", err)
+	}
 	err = h.Queries.InsertDummiesInsideUsers(timeout)
 	if err != nil {
 		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
@@ -85,6 +89,14 @@ func TestGitHubCallback(t *testing.T) {
 		err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/clean_session.redis")
 		if err != nil {
 			t.Fatalf("Couldn't successfully clean mock session token, due to error: %v", err)
+		}
+		err = h.Queries.DeleteGitHubMock(timeout)
+		if err != nil {
+			t.Fatalf("Couldn't successfully clean mock github oauth, due to error: %v", err)
+		}
+		err = h.Queries.TruncateEverythingBeforeTest(timeout)
+		if err != nil {
+			t.Fatalf("Couldn't successfully delete the users and the sessions, due to error: %v", err)
 		}
 	}()
 

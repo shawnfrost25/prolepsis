@@ -82,8 +82,7 @@ const insertGitHubPushInfo = `-- name: InsertGitHubPushInfo :one
 INSERT INTO github_repo_push(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
 VALUES (
     $1::bigint, $2::bigint, $3::bigint, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text, $10::boolean, $11::boolean, $12::boolean
-)
-RETURNING id
+) RETURNING id
 `
 
 type InsertGitHubPushInfoParams struct {

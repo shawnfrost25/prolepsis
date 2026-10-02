@@ -47,6 +47,30 @@ func (q *Queries) InsertDummiesInsideUsers(ctx context.Context) error {
 	return err
 }
 
+const insertDummyGitHubUsers = `-- name: InsertDummyGitHubUsers :exec
+INSERT INTO github_user (user_id, github_id, name, avatar_url, html_url, company, email, hireable, bio, followers, total_public_repos, total_private_repos, total_repos, created_at)
+VALUES
+('00000000-0000-0000-0000-000000000001', 10000001, 'mimikagari', 'https://avatars.githubusercontent.com/u/10000001', 'https://github.com/mimikagari', NULL, 'mimi@test.com', false, 'sheenas handholder', 42, 1, 0, 1, '2024-01-15 00:00:00+00'),
+('00000000-0000-0000-0000-000000000006', 10000006, 'hinakohanamura', 'https://avatars.githubusercontent.com/u/10000006', 'https://github.com/hinakohanamura', 'Bloom Pastry Shop', 'hinako@test.com', true, 'Head baker & dev. Waiting for Airi to come home (countryside)', 128, 1, 0, 1, '2024-03-22 00:00:00+00')
+`
+
+func (q *Queries) InsertDummyGitHubUsers(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, insertDummyGitHubUsers)
+	return err
+}
+
+const insertDummyRepositories = `-- name: InsertDummyRepositories :exec
+INSERT INTO github_repo (github_id, repo_id, name, html_url, description, created_at, pushed_at, stars, watches, forks_count, main_language, license_key, topic, archived, visibility)
+VALUES
+(10000001, 5839201, 'sheena-sheena-sheena', 'https://github.com/mimikagari/sheena-sheena-sheena', 'sheena look i made a repo!! sheena sheena!!', '2024-01-15 10:00:00+00', '2026-09-12 14:30:00+00', 999, 999, 0, NULL, NULL, ARRAY['sheena', 'hug', 'cute'], false, 'public'),
+(10000006, 5839202, 'bloom-pastry-planner', 'https://github.com/hinakohanamura/bloom-pastry-planner', 'A web app for organizing bakery schedules, also loves Airi, a little too much to be wholesome', '2024-03-22 08:15:00+00', '2026-09-28 18:00:00+00', 256, 82, 30, 'TypeScript', NULL, ARRAY['baking', 'typescript', 'react', 'planner'], false, 'public')
+`
+
+func (q *Queries) InsertDummyRepositories(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, insertDummyRepositories)
+	return err
+}
+
 const truncateEverythingBeforeTest = `-- name: TruncateEverythingBeforeTest :exec
 TRUNCATE TABLE users CASCADE
 `

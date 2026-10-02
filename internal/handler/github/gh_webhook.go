@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
@@ -174,6 +175,47 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	exists, err := h.Queries.RepoExistsInsideGitHub(timeout, req.RepoInfo.ID)
+	if err != nil {
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusRequestTimeout).
+				Str("cause", "timeout").
+				Msg("failed to check about repository existence due to timeout")
+			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+				Code:    "REQUEST_TIMEOUT",
+				Message: "Timedout while trying to check for the repository existence",
+				TraceID: trace,
+			})
+			return
+		}
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "unrecognized").
+			Msg("failed to check about repository existence due to unrecognized error")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Unrecognized error while trying to check repository existence",
+			TraceID: trace,
+		})
+		return
+	}
+	if !exists {
+		logger.Warn().
+			Int("status", http.StatusOK).
+			Int64("repo_id", req.RepoInfo.ID).
+			Str("full_name", req.RepoInfo.FullName).
+			Msg("ignoring webhook - repository is not registered in the database")
+
+		lib.Pretty(w, http.StatusOK, lib.Error{
+			Code:    "OK",
+			Message: "Repository is not registered, ignoring push event",
+			TraceID: trace,
+		})
+	}
+
 	deliveryID := r.Header.Get("X-GitHub-Delivery")
 
 	if deliveryID == "" {
@@ -191,28 +233,6 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	logger.Info().
 		Str("delivery_id", deliveryID).
 		Msg("this is the provided id by the webhook")
-
-	does_not_exists, err := h.RedisClient.SetNX(timeout, "oauth:github:webhook:delivery:"+deliveryID, 1, 24*time.Hour).Result()
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("failed to add the delivery id inside redis")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unrecognized error while trying to store the delivery id",
-			TraceID: trace,
-		})
-		return
-	}
-	if !does_not_exists {
-		logger.Info().
-			Str("delivery_id", deliveryID).
-			Msg("duplicated webhook")
-		lib.Pretty(w, http.StatusOK, nil)
-		return
-	}
 
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -234,5 +254,27 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	switch event {
 	case "push":
 		wh.WebhookPush(w, r, bodyBytes)
+	}
+
+	does_not_exists, err := h.RedisClient.SetNX(timeout, "oauth:github:webhook:delivery:"+deliveryID, 1, 24*time.Hour).Result()
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Int("status", http.StatusInternalServerError).
+			Str("cause", "unrecognized").
+			Msg("failed to add the delivery id inside redis")
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Unrecognized error while trying to store the delivery id",
+			TraceID: trace,
+		})
+		return
+	}
+	if !does_not_exists {
+		logger.Info().
+			Str("delivery_id", deliveryID).
+			Msg("duplicated webhook")
+		lib.Pretty(w, http.StatusOK, nil)
+		return
 	}
 }
