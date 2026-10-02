@@ -70,7 +70,7 @@ func TestGetUserByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't successfully insert users inside the database due to this error: %v", err)
 	}
-	// Create sessions
+
 	err = lib.RunMake("../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/create_session.redis")
 	if err != nil {
 		t.Fatalf("Couldn't successfully create user session inside Redis due to this error: %v", err)

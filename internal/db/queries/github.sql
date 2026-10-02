@@ -59,8 +59,7 @@ SELECT EXISTS (
 INSERT INTO github_repo_push(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
 VALUES (
     sqlc.arg('github_repo_id')::bigint, sqlc.arg('github_user_id')::bigint, sqlc.arg('hook_id')::bigint, sqlc.arg('full_name')::text, sqlc.arg('ref')::text, sqlc.narg('before_sha')::text, sqlc.narg('after_sha')::text, sqlc.narg('head_commit_id')::text, sqlc.arg('compare')::text, sqlc.arg('forced')::boolean, sqlc.arg('created')::boolean, sqlc.arg('deleted')::boolean
-)
-RETURNING id;
+) RETURNING id;
 
 -- name: InsertGitHubPushCommitInfo :exec
 INSERT INTO github_repo_push_commit(push_id, commit_sha, message, added, removed, modified, url, committed_at)

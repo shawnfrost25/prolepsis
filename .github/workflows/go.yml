@@ -105,7 +105,7 @@ jobs:
 
       - name: "Run code tester"
         run: |
-          go test -race ./...
+          go test -p 1 -race ./...
 
       - name: "Close docker compose connection"
         if: always()

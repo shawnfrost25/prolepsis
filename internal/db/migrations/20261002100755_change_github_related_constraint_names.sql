@@ -1,0 +1,2 @@
+-- Modify "github_repo_push" table
+ALTER TABLE "public"."github_repo_push" DROP CONSTRAINT "github_repo_webhook_github_repo_id_fkey", DROP CONSTRAINT "github_repo_webhook_github_user_id", ADD CONSTRAINT "github_repo_push_github_repo_id_fkey" FOREIGN KEY ("github_repo_id") REFERENCES "public"."github_repo" ("repo_id") ON UPDATE NO ACTION ON DELETE CASCADE, ADD CONSTRAINT "github_repo_push_github_user_id" FOREIGN KEY ("github_user_id") REFERENCES "public"."github_user" ("github_id") ON UPDATE NO ACTION ON DELETE CASCADE;

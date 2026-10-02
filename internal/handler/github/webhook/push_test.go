@@ -64,11 +64,35 @@ func TestWebhookPush(t *testing.T) {
 
 	h := oauthGithub.GH_New(redisClient, oauth2.Config{}, http.Client{}, queries)
 
+	err = h.Queries.TruncateEverythingBeforeTest(timeout)
+	if err != nil {
+		t.Fatalf("Expected to run the sql command and clean everything about users, but got: %v", err)
+	}
+	err = h.Queries.DeleteGitHubMock(timeout)
+	if err != nil {
+		t.Fatalf("Expected to run the sql command and clean everything about github, but got: %v", err)
+	}
+	err = h.Queries.InsertDummiesInsideUsers(timeout)
+	if err != nil {
+		t.Fatalf("Expected to run the sql command and create dummies, but got: %v", err)
+	}
+	err = h.Queries.InsertDummyGitHubUsers(timeout)
+	if err != nil {
+		t.Fatalf("Expected to run the sql command and create dummies related to github users, though got: %v", err)
+	}
+	err = h.Queries.InsertDummyRepositories(timeout)
+	if err != nil {
+		t.Fatalf("Expected to run the sql command and create dummies related to github repositories, though got: %v", err)
+	}
 	err = lib.RunMake("../../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/create_github_fluff.redis")
 	if err != nil {
 		t.Fatalf("Expected to run the 'make' command and create the github fluff, but got: %v", err)
 	}
 	defer func() {
+		err = h.Queries.TruncateEverythingBeforeTest(timeout)
+		if err != nil {
+			t.Fatalf("Expected to run the sql command and clean everything, but got: %v", err)
+		}
 		err = lib.RunMake("../../../../", "redis-test", "REDIS_PASS="+redisPSWD, "REDIS_PATH=internal/handler/testdata/clean_github_fluff.redis")
 		if err != nil {
 			t.Fatalf("Expected to run the 'make' command and create the github fluff, but got: %v", err)
@@ -103,7 +127,7 @@ func TestWebhookPush(t *testing.T) {
 					ID:       5839201,
 					FullName: "myorg/api-service",
 					OwnerID: webhook.Owner{
-						ID: 102938,
+						ID: 10000001,
 					},
 				},
 				CommitInfo: []webhook.Commit{
@@ -145,10 +169,10 @@ func TestWebhookPush(t *testing.T) {
 					SHA: "9999888877776666555544443333222211110000",
 				},
 				RepoInfo: webhook.Repository{
-					ID:       5839201,
+					ID:       5839202,
 					FullName: "myorg/api-service",
 					OwnerID: webhook.Owner{
-						ID: 102938,
+						ID: 10000006,
 					},
 				},
 				CommitInfo: []webhook.Commit{
@@ -184,7 +208,7 @@ func TestWebhookPush(t *testing.T) {
 					ID:       5839201,
 					FullName: "myorg/api-service",
 					OwnerID: webhook.Owner{
-						ID: 102938,
+						ID: 10000001,
 					},
 				},
 				CommitInfo: []webhook.Commit{
