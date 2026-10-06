@@ -253,28 +253,12 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	event := r.Header.Get("X-GitHub-Event")
 	switch event {
 	case "push":
-		wh.WebhookPush(w, r, bodyBytes)
-	}
-
-	does_not_exists, err := h.RedisClient.SetNX(timeout, "oauth:github:webhook:delivery:"+deliveryID, 1, 24*time.Hour).Result()
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("failed to add the delivery id inside redis")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unrecognized error while trying to store the delivery id",
-			TraceID: trace,
-		})
-		return
-	}
-	if !does_not_exists {
-		logger.Info().
-			Str("delivery_id", deliveryID).
-			Msg("duplicated webhook")
-		lib.Pretty(w, http.StatusOK, nil)
-		return
+		wh.WebhookPush(w, r, bodyBytes, deliveryID)
+	case "pull_request":
+		wh.WebhookPullRequest(w, r, bodyBytes, deliveryID)
+	case "issues":
+		wh.WebhookIssues(w, r, bodyBytes, deliveryID)
+	case "issue_comment":
+		wh.WebhookIssueComment(w, r, bodyBytes, deliveryID)
 	}
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, body []byte) {
+func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -78,7 +78,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 				Err(err).
 				Int("status", http.StatusRequestTimeout).
 				Str("cause", "timeout").
-				Msg("failed to fetc the webhook id from redis due to timeout")
+				Msg("failed to fetch the webhook id from redis due to timeout")
 			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
 				Code:    "REQUEST_TIMEOUT",
 				Message: "Timedout while trying to get the webhook if",
