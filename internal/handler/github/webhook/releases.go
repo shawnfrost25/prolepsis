@@ -17,8 +17,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
-	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
+func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
+	logger := zerolog.Ctx(r.Context()).With().Str("event", "releases").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
 		logger.Error().
@@ -38,39 +38,23 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var req GitHubPush
+	var req GitHubReleases
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
-			Str("cause", "could_not_decode").
-			Msg("failed to decode the given request payload")
+			Str("cause", "failed_to_unmarshal").
+			Msg("failed to unmarshal the given body request")
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to decode the given request payload",
+			Message: "Failed to unmarshal the given body request",
 			TraceID: trace,
 		})
 		return
 	}
 
-	var headCommitSHA *string
-	if req.HeadCommitID != nil {
-		headCommitSHA = &req.HeadCommitID.SHA
-	} else {
-		headCommitSHA = nil
-	}
-
-	const zeroSHA = "0000000000000000000000000000000000000000"
-
-	isZero := func(sha *string) *string {
-		if sha == nil || *sha == "" || *sha == zeroSHA {
-			return nil
-		}
-		return sha
-	}
-
-	repoIDStr := strconv.FormatInt(req.RepoInfo.ID, 10)
+	repoIDStr := strconv.FormatInt(req.Repository.ID, 10)
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -91,8 +75,8 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 				Err(err).
 				Int("status", http.StatusNotFound).
 				Str("cause", "missing_webhook_id").
-				Int64("repo_id", req.RepoInfo.ID).
-				Str("full_name", req.RepoInfo.FullName).
+				Int64("repo_id", req.Repository.ID).
+				Str("full_name", req.Repository.FullName).
 				Msg("missing webhook id inside redis")
 			lib.Pretty(w, http.StatusNotFound, lib.Error{
 				Code:    "NOT_FOUND",
@@ -142,19 +126,27 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		return
 	}
 
-	pushID, err := h.Queries.InsertGitHubPushInfo(timeout, db.InsertGitHubPushInfoParams{
-		GithubRepoID: req.RepoInfo.ID,
-		GithubUserID: req.RepoInfo.OwnerID.ID,
-		HookID:       hookID,
-		FullName:     req.RepoInfo.FullName,
-		Ref:          req.Ref,
-		BeforeSha:    isZero(&req.BeforeSHA),
-		AfterSha:     isZero(&req.AfterSHA),
-		HeadCommitID: headCommitSHA,
-		Compare:      req.Compare,
-		Forced:       req.Forced,
-		Created:      req.Created,
-		Deleted:      req.Deleted,
+	var publishedAt pgtype.Timestamptz
+	if req.Release.PublishedAt != nil {
+		publishedAt = pgtype.Timestamptz{Time: *req.Release.PublishedAt, Valid: true}
+	}
+
+	err = h.Queries.InsertGitHubReleases(timeout, db.InsertGitHubReleasesParams{
+		GithubRepoID:    req.Repository.ID,
+		GithubUserID:    req.Repository.OwnerID.ID,
+		ReleasesID:      req.Release.ID,
+		HookID:          hookID,
+		Action:          req.Action,
+		TagName:         req.Release.TagName,
+		Name:            req.Release.Name,
+		Body:            req.Release.Body,
+		TargetCommitish: req.Release.TargetCommitish,
+		Draft:           req.Release.Draft,
+		Prerelease:      req.Release.Prerelease,
+		PublishedAt:     publishedAt,
+		SenderID:        req.Sender.ID,
+		SenderName:      req.Sender.Login,
+		SenderType:      req.Sender.Type,
 	})
 	if err != nil {
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -162,10 +154,10 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 				Err(err).
 				Int("status", http.StatusRequestTimeout).
 				Str("cause", "timeout").
-				Msg("timeout while trying to insert the github webhook push information")
+				Msg("failed to insert the given release due to timeout")
 			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
 				Code:    "REQUEST_TIMEOUT",
-				Message: "Failed to insert the webhook push information",
+				Message: "Timedout while trying insert the given release inside the database",
 				TraceID: trace,
 			})
 			return
@@ -174,69 +166,18 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 			Err(err).
 			Int("status", http.StatusInternalServerError).
 			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to insert the github webhook push information")
+			Msg("failed to insert the given release due to an unrecognized error")
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to insert the github webhook push information",
+			Message: "Failed to insert the given release due to an unrecognized error",
 			TraceID: trace,
 		})
 		return
 	}
 
-	for _, commit := range req.CommitInfo {
-		err := h.Queries.InsertGitHubPushCommitInfo(timeout, db.InsertGitHubPushCommitInfoParams{
-			PushID:      pushID,
-			CommitSha:   commit.CommitSha,
-			Message:     commit.Message,
-			Added:       commit.Added,
-			Removed:     commit.Removed,
-			Modified:    commit.Modified,
-			Url:         commit.URL,
-			CommittedAt: pgtype.Timestamptz{Time: commit.CommittedAt, Valid: true},
-		})
-		if err != nil {
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Str("commit_sha", commit.CommitSha).
-					Str("push_id", pushID.String()).
-					Str("full_name", req.RepoInfo.FullName).
-					Msg("Failed to insert the commit info, due to timeout")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Timedout while trying to insert the commit info inside the database",
-					TraceID: trace,
-				})
-				return
-			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Str("commit_sha", commit.CommitSha).
-				Str("push_id", pushID.String()).
-				Msg("hit an urecognized error while trying to insert the github webhook info inside the database")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Unrecognized error while trying to insert the github webhook info inside the database",
-				TraceID: trace,
-			})
-			return
-		}
-
-		logger.Debug().
-			Str("commit_sha", commit.CommitSha).
-			Str("push_id", pushID.String()).
-			Str("full_name", req.RepoInfo.FullName).
-			Msg("successfully inserted commit")
-	}
-
 	logger.Info().
-		Int("status", http.StatusOK).
-		Msg("successfully managed to insert the webhook push info and the commits too")
-	lib.Pretty(w, http.StatusOK, map[string]string{
-		"status": "ok",
-	})
+		Str("cause", "success").
+		Msg("successfully inserted the given release inside the database")
+
+	lib.Pretty(w, http.StatusOK, nil)
 }

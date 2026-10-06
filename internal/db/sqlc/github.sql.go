@@ -12,11 +12,254 @@ import (
 )
 
 const deleteGitHubMock = `-- name: DeleteGitHubMock :exec
-TRUNCATE TABLE github_user, github_repo, github_repo_license, github_repo_push, github_repo_push_commit CASCADE
+TRUNCATE TABLE github_user, github_repo, github_repo_license, github_repo_push, github_repo_push_commit, github_repo_pull_request, github_repo_pull_request_info, github_repo_issues, github_repo_issues_info, github_repo_issues_labels, github_repo_issues_field_values, github_repo_issues_multi_select_options, github_repo_issues_comments CASCADE
 `
 
 func (q *Queries) DeleteGitHubMock(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteGitHubMock)
+	return err
+}
+
+const insertGitHubIssue = `-- name: InsertGitHubIssue :exec
+INSERT INTO github_repo_issues(id, github_repo_id, github_user_id, hook_id, event_action, assignee_id, assignee_name, assignee_type, sender_id, sender_name, sender_type)
+VALUES(
+    $1::uuid, $2::bigint, $3::bigint, $4::bigint, $5::text, $6::bigint, $7::text, $8::text, $9::bigint, $10::text, $11::text
+)
+`
+
+type InsertGitHubIssueParams struct {
+	ID           pgtype.UUID
+	GithubRepoID int64
+	GithubUserID int64
+	HookID       int64
+	EventAction  string
+	AssigneeID   *int64
+	AssigneeName *string
+	AssigneeType *string
+	SenderID     int64
+	SenderName   string
+	SenderType   string
+}
+
+func (q *Queries) InsertGitHubIssue(ctx context.Context, arg InsertGitHubIssueParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubIssue,
+		arg.ID,
+		arg.GithubRepoID,
+		arg.GithubUserID,
+		arg.HookID,
+		arg.EventAction,
+		arg.AssigneeID,
+		arg.AssigneeName,
+		arg.AssigneeType,
+		arg.SenderID,
+		arg.SenderName,
+		arg.SenderType,
+	)
+	return err
+}
+
+const insertGitHubIssueComment = `-- name: InsertGitHubIssueComment :exec
+INSERT INTO github_repo_issues_comments(issue_id, action, change_from, created_at, updated_at, author_association, comment_id, commentor_id, commentor_name, commentor_type, body, positive_reactions, negative_reactions, total_reactions)
+VALUES(
+    $1::bigint, $2::text, $3::text, $4::timestamptz, $5::timestamptz, $6::text, $7::bigint, $8::bigint, $9::text, $10::text, $11::text, $12::int, $13::int, $14::int
+)
+`
+
+type InsertGitHubIssueCommentParams struct {
+	IssueID           int64
+	Action            string
+	ChangeFrom        *string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	AuthorAssociation string
+	CommentID         int64
+	CommentorID       int64
+	CommentorName     string
+	CommentorType     string
+	Body              string
+	PositiveReactions int32
+	NegativeReactions int32
+	TotalReactions    int32
+}
+
+func (q *Queries) InsertGitHubIssueComment(ctx context.Context, arg InsertGitHubIssueCommentParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubIssueComment,
+		arg.IssueID,
+		arg.Action,
+		arg.ChangeFrom,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.AuthorAssociation,
+		arg.CommentID,
+		arg.CommentorID,
+		arg.CommentorName,
+		arg.CommentorType,
+		arg.Body,
+		arg.PositiveReactions,
+		arg.NegativeReactions,
+		arg.TotalReactions,
+	)
+	return err
+}
+
+const insertGitHubIssueFieldValue = `-- name: InsertGitHubIssueFieldValue :one
+INSERT INTO github_repo_issues_field_values(issue_id, issue_field_name, data_type, value, single_select_option_id, single_select_option_name)
+VALUES(
+    $1::bigint, $2::text, $3::text, $4::jsonb, $5::bigint, $6::text
+) RETURNING id
+`
+
+type InsertGitHubIssueFieldValueParams struct {
+	IssueID                int64
+	IssueFieldName         string
+	DataType               string
+	Value                  []byte
+	SingleSelectOptionID   *int64
+	SingleSelectOptionName *string
+}
+
+func (q *Queries) InsertGitHubIssueFieldValue(ctx context.Context, arg InsertGitHubIssueFieldValueParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertGitHubIssueFieldValue,
+		arg.IssueID,
+		arg.IssueFieldName,
+		arg.DataType,
+		arg.Value,
+		arg.SingleSelectOptionID,
+		arg.SingleSelectOptionName,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertGitHubIssueInfo = `-- name: InsertGitHubIssueInfo :execrows
+INSERT INTO github_repo_issues_info(related_id, issue_id, author_association, body, comments, draft, created_at, deleted_at, locked, milestone_description, milestone_due_on, milestone_state, milestone_title, number, positive_reactions, negative_reactions, reactions_total_count, state, state_reason, sub_issue_total, sub_issue_completed, sub_issue_percent_completed, issue_dependency_total_blocked_by, issue_dependency_total_blocking, title, type_name, type_description, updated_at, issue_created_by, creator_name, creator_type, assignee_id, assignee_name, assignee_type)
+VALUES(
+    $1::uuid, $2::bigint, $3::text, $4::text, $5::int, $6::boolean, $7::timestamptz, $8::timestamptz, $9::boolean, $10::text, $11::text, $12::text, $13::text, $14::int, $15::int, $16::int, $17::int, $18::text, $19::text, $20::int, $21::int, $22::int, $23::int, $24::int, $25::text, $26::text, $27::text, $28::timestamptz, $29::bigint, $30::text, $31::text,  $32::bigint, $33::text, $34::text
+) ON CONFLICT (issue_id) DO NOTHING
+`
+
+type InsertGitHubIssueInfoParams struct {
+	RelatedID                     pgtype.UUID
+	IssueID                       int64
+	AuthorAssociation             string
+	Body                          *string
+	Comments                      int32
+	Draft                         bool
+	CreatedAt                     pgtype.Timestamptz
+	DeletedAt                     pgtype.Timestamptz
+	Locked                        bool
+	MilestoneDescription          *string
+	MilestoneDueOn                *string
+	MilestoneState                *string
+	MilestoneTitle                *string
+	Number                        int32
+	PositiveReactions             int32
+	NegativeReactions             int32
+	ReactionsTotalCount           int32
+	State                         string
+	StateReason                   *string
+	SubIssueTotal                 int32
+	SubIssueCompleted             int32
+	SubIssuePercentCompleted      int32
+	IssueDependencyTotalBlockedBy int32
+	IssueDependencyTotalBlocking  int32
+	Title                         string
+	TypeName                      *string
+	TypeDescription               *string
+	UpdatedAt                     pgtype.Timestamptz
+	IssueCreatedBy                *int64
+	CreatorName                   *string
+	CreatorType                   *string
+	AssigneeID                    *int64
+	AssigneeName                  *string
+	AssigneeType                  *string
+}
+
+func (q *Queries) InsertGitHubIssueInfo(ctx context.Context, arg InsertGitHubIssueInfoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertGitHubIssueInfo,
+		arg.RelatedID,
+		arg.IssueID,
+		arg.AuthorAssociation,
+		arg.Body,
+		arg.Comments,
+		arg.Draft,
+		arg.CreatedAt,
+		arg.DeletedAt,
+		arg.Locked,
+		arg.MilestoneDescription,
+		arg.MilestoneDueOn,
+		arg.MilestoneState,
+		arg.MilestoneTitle,
+		arg.Number,
+		arg.PositiveReactions,
+		arg.NegativeReactions,
+		arg.ReactionsTotalCount,
+		arg.State,
+		arg.StateReason,
+		arg.SubIssueTotal,
+		arg.SubIssueCompleted,
+		arg.SubIssuePercentCompleted,
+		arg.IssueDependencyTotalBlockedBy,
+		arg.IssueDependencyTotalBlocking,
+		arg.Title,
+		arg.TypeName,
+		arg.TypeDescription,
+		arg.UpdatedAt,
+		arg.IssueCreatedBy,
+		arg.CreatorName,
+		arg.CreatorType,
+		arg.AssigneeID,
+		arg.AssigneeName,
+		arg.AssigneeType,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertGitHubIssueLabel = `-- name: InsertGitHubIssueLabel :exec
+INSERT INTO github_repo_issues_labels(issue_id, label_id, name, description)
+VALUES(
+    $1::bigint, $2::bigint, $3::text, $4::text
+) ON CONFLICT (issue_id, label_id) DO UPDATE SET
+name = EXCLUDED.name,
+description = EXCLUDED.description
+`
+
+type InsertGitHubIssueLabelParams struct {
+	IssueID     int64
+	LabelID     int64
+	Name        string
+	Description *string
+}
+
+func (q *Queries) InsertGitHubIssueLabel(ctx context.Context, arg InsertGitHubIssueLabelParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubIssueLabel,
+		arg.IssueID,
+		arg.LabelID,
+		arg.Name,
+		arg.Description,
+	)
+	return err
+}
+
+const insertGitHubIssueMultiSelectOption = `-- name: InsertGitHubIssueMultiSelectOption :exec
+INSERT INTO github_repo_issues_multi_select_options(field_value_id, id, name)
+VALUES(
+    $1::uuid, $2::bigint, $3::text
+)
+`
+
+type InsertGitHubIssueMultiSelectOptionParams struct {
+	FieldValueID pgtype.UUID
+	ID           int64
+	Name         string
+}
+
+func (q *Queries) InsertGitHubIssueMultiSelectOption(ctx context.Context, arg InsertGitHubIssueMultiSelectOptionParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubIssueMultiSelectOption, arg.FieldValueID, arg.ID, arg.Name)
 	return err
 }
 
@@ -42,6 +285,112 @@ func (q *Queries) InsertGitHubLicenseInfo(ctx context.Context, arg InsertGitHubL
 		arg.SpdxID,
 		arg.Url,
 		arg.NodeID,
+	)
+	return err
+}
+
+const insertGitHubPullRequest = `-- name: InsertGitHubPullRequest :exec
+INSERT INTO github_repo_pull_request(github_repo_id, github_user_id, hook_id, event_action, full_name, sender_id, sender_name, sender_type, pull_request_id, created_at, updated_at, closed_at, merged_at, additions, deletions, changed_files, commits_count, comments_count, review_comments_count, head_branch, head_sha, base_branch, merge_commit_sha, assignee_ids, requested_reviewer_ids, requested_team_ids, labels, milestone_id)
+VALUES(
+    $1::bigint, $2::bigint, $3::bigint, $4::text, $5::text, $6::bigint, $7::text, $8::text, $9::bigint, $10::timestamptz, $11::timestamptz, $12::timestamptz, $13::timestamptz, $14::int, $15::int, $16::int, $17::int, $18::int, $19::int, $20::text, $21::text, $22::text, $23::text, $24::bigint[], $25::bigint[], $26::bigint[], $27::text[], $28::bigint
+)
+`
+
+type InsertGitHubPullRequestParams struct {
+	GithubRepoID         int64
+	GithubUserID         int64
+	HookID               int64
+	EventAction          string
+	FullName             string
+	SenderID             int64
+	SenderName           string
+	SenderType           string
+	PullRequestID        int64
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
+	ClosedAt             pgtype.Timestamptz
+	MergedAt             pgtype.Timestamptz
+	Additions            int32
+	Deletions            int32
+	ChangedFiles         int32
+	CommitsCount         int32
+	CommentsCount        int32
+	ReviewCommentsCount  int32
+	HeadBranch           string
+	HeadSha              string
+	BaseBranch           string
+	MergeCommitSha       *string
+	AssigneeIds          []int64
+	RequestedReviewerIds []int64
+	RequestedTeamIds     []int64
+	Labels               []string
+	MilestoneID          *int64
+}
+
+func (q *Queries) InsertGitHubPullRequest(ctx context.Context, arg InsertGitHubPullRequestParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubPullRequest,
+		arg.GithubRepoID,
+		arg.GithubUserID,
+		arg.HookID,
+		arg.EventAction,
+		arg.FullName,
+		arg.SenderID,
+		arg.SenderName,
+		arg.SenderType,
+		arg.PullRequestID,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ClosedAt,
+		arg.MergedAt,
+		arg.Additions,
+		arg.Deletions,
+		arg.ChangedFiles,
+		arg.CommitsCount,
+		arg.CommentsCount,
+		arg.ReviewCommentsCount,
+		arg.HeadBranch,
+		arg.HeadSha,
+		arg.BaseBranch,
+		arg.MergeCommitSha,
+		arg.AssigneeIds,
+		arg.RequestedReviewerIds,
+		arg.RequestedTeamIds,
+		arg.Labels,
+		arg.MilestoneID,
+	)
+	return err
+}
+
+const insertGitHubPullRequestInfo = `-- name: InsertGitHubPullRequestInfo :exec
+INSERT INTO github_repo_pull_request_info(id, number, title, state, is_draft, is_merged, author_id, author_name, author_type)
+VALUES(
+    $1::bigint, $2::int, $3::text, $4::text, $5::boolean, $6::boolean, $7::bigint, $8::text, $9::text
+)
+`
+
+type InsertGitHubPullRequestInfoParams struct {
+	ID         int64
+	Number     int32
+	Title      string
+	State      string
+	IsDraft    bool
+	IsMerged   *bool
+	AuthorID   *int64
+	AuthorName *string
+	AuthorType *string
+}
+
+func (q *Queries) InsertGitHubPullRequestInfo(ctx context.Context, arg InsertGitHubPullRequestInfoParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubPullRequestInfo,
+		arg.ID,
+		arg.Number,
+		arg.Title,
+		arg.State,
+		arg.IsDraft,
+		arg.IsMerged,
+		arg.AuthorID,
+		arg.AuthorName,
+		arg.AuthorType,
 	)
 	return err
 }
@@ -118,6 +467,52 @@ func (q *Queries) InsertGitHubPushInfo(ctx context.Context, arg InsertGitHubPush
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertGitHubReleases = `-- name: InsertGitHubReleases :exec
+INSERT INTO github_repo_releases(github_repo_id, github_user_id, releases_id, hook_id, action, tag_name, name, body, target_commitish, draft, prerelease, published_at, sender_id, sender_name, sender_type)
+VALUES(
+    $1::bigint, $2::bigint, $3::bigint, $4::bigint, $5::text, $6::text, $7::text, $8::text, $9::text, $10::boolean, $11::boolean, $12::timestamptz, $13::bigint, $14::text, $15::text
+)
+`
+
+type InsertGitHubReleasesParams struct {
+	GithubRepoID    int64
+	GithubUserID    int64
+	ReleasesID      int64
+	HookID          int64
+	Action          string
+	TagName         string
+	Name            string
+	Body            string
+	TargetCommitish string
+	Draft           bool
+	Prerelease      bool
+	PublishedAt     pgtype.Timestamptz
+	SenderID        int64
+	SenderName      string
+	SenderType      string
+}
+
+func (q *Queries) InsertGitHubReleases(ctx context.Context, arg InsertGitHubReleasesParams) error {
+	_, err := q.db.Exec(ctx, insertGitHubReleases,
+		arg.GithubRepoID,
+		arg.GithubUserID,
+		arg.ReleasesID,
+		arg.HookID,
+		arg.Action,
+		arg.TagName,
+		arg.Name,
+		arg.Body,
+		arg.TargetCommitish,
+		arg.Draft,
+		arg.Prerelease,
+		arg.PublishedAt,
+		arg.SenderID,
+		arg.SenderName,
+		arg.SenderType,
+	)
+	return err
 }
 
 const insertGitHubRepoInfo = `-- name: InsertGitHubRepoInfo :exec
@@ -230,6 +625,34 @@ func (q *Queries) InsertGitHubUserInfo(ctx context.Context, arg InsertGitHubUser
 		arg.CreatedAt,
 	)
 	return err
+}
+
+const insertGitHubWebhookDeliveries = `-- name: InsertGitHubWebhookDeliveries :execrows
+INSERT INTO github_repo_webhook_deliveries(delivery_id)
+VALUES(
+    $1::uuid
+) ON CONFLICT (delivery_id) DO NOTHING
+`
+
+func (q *Queries) InsertGitHubWebhookDeliveries(ctx context.Context, deliveryID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, insertGitHubWebhookDeliveries, deliveryID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const issueInfoExistsInsideTheGitHub = `-- name: IssueInfoExistsInsideTheGitHub :one
+SELECT EXISTS(
+    SELECT related_id, issue_id, author_association, body, comments, draft, created_at, deleted_at, locked, milestone_description, milestone_due_on, milestone_state, milestone_title, number, positive_reactions, negative_reactions, reactions_total_count, state, state_reason, sub_issue_total, sub_issue_completed, sub_issue_percent_completed, issue_dependency_total_blocked_by, issue_dependency_total_blocking, title, type_name, type_description, updated_at, issue_created_by, creator_name, creator_type, assignee_id, assignee_name, assignee_type FROM github_repo_issues_info WHERE issue_id = $1
+)
+`
+
+func (q *Queries) IssueInfoExistsInsideTheGitHub(ctx context.Context, issueID int64) (bool, error) {
+	row := q.db.QueryRow(ctx, issueInfoExistsInsideTheGitHub, issueID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const licenseExistsInsideGitHub = `-- name: LicenseExistsInsideGitHub :one

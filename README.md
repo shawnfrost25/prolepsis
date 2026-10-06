@@ -1,5 +1,5 @@
 ## DISCLAIMER
-**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves.
+**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves. Most of the test and functions are temporary - only when the README.md will be fully updated, then everything will be "finale-finale"
 
 ## Current Features
 * **Authentication & User Management:** Working registration, login, and user profile querying.

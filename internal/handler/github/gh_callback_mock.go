@@ -1,13 +1,17 @@
 package oauthGithub
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/lib"
+	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -499,6 +503,259 @@ func (h *GitHubHandler) GitHubCallbackMock(w http.ResponseWriter, r *http.Reques
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
 				Message: "Couldn't insert user's repository info inside the database",
+			})
+			return
+		}
+
+		secretBytes := make([]byte, 32)
+		if _, err := rand.Read(secretBytes); err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_rand_encryption").
+				Msg("failed to encrypt (via rand) the given bytes due to an unrecognized error")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed rand encryption",
+			})
+			return
+		}
+		secret := hex.EncodeToString(secretBytes)
+
+		webhookCreate := GitHubWebhookCreation{
+			Name:   "web",
+			Active: true,
+			Events: []string{"push", "pull_request", "issues", "issue_comment", "release", "repository"},
+			Config: GitHubWebhookConfig{
+				URL:         "",
+				ContentType: "json",
+				Secret:      secret,
+				InsecureSSL: 0,
+			},
+		}
+
+		bodyBytes, err := sonic.Marshal(webhookCreate)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_body_conversion").
+				Msg("failed to turn the given structure into a body for github webhook creation")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed to convert structure for webhook creation",
+			})
+			return
+		}
+		body := bytes.NewReader(bodyBytes)
+
+		webhookURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/hooks", reqUser.GitHubUsername, reqRepo.RepoName)
+		reqW, err := http.NewRequestWithContext(timeoutRepo, http.MethodPost, webhookURL, body)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Int16("repo_number", repo).
+					Str("repo_name", reqRepo.RepoName).
+					Msg("couldn't create webhook creation request due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to create the request for the webhook creation",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Int16("repo_number", repo).
+				Str("repo_name", reqRepo.RepoName).
+				Msg("unrecognized error while trying to create a request for the webhook creation")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed to create a webhook",
+			})
+			return
+		}
+		reqW.Header.Set("Accept", "application/vnd.github.json")
+		reqW.Header.Set("Authorization", "Bearer "+req.Token)
+		reqW.Header.Set("X-GitHub-Api-Version", "2026-03-10")
+
+		repoIDStr := strconv.FormatInt(reqRepo.RepoID, 10)
+
+		_, err = h.RedisClient.Set(timeoutRepo, "oauth:github:webhook:secret:"+repoIDStr, secret, 0).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("failed to insert the github webhook secret inside redis due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to insert the webhook secret",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("unrecognized error while trying to insert the github webhook secret inside redis")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Hit an unrecognized error while trying to insert the webhook secret",
+			})
+			return
+		}
+
+		wasRemoved, err := h.RedisClient.Persist(timeoutRepo, "oauth:github:webhook:secret:"+repoIDStr).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("failed to make the redis webhook secret persistent due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to make the secret persistent",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("hit an unrecognized error while trying to make the redis webhook secret persistent")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error while trying to make the secret persistent",
+			})
+			return
+		}
+		if !wasRemoved {
+			logger.Error().
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_ttl_removal").
+				Msg("failed to remove the redis webhook secret TTL to make the key persistent")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed secret TTL removal",
+			})
+			return
+		}
+
+		respWeb, err := h.HTTP_Client.Do(reqW)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("failed to send request and get response about webhook creation due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to send request about webhook creation",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("unrecognized error while trying to send request to get response about webhook creation")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error while trying to send the request about webhook creation",
+			})
+			return
+		}
+
+		var reqWeb WebhookResponse
+		err = sonic.ConfigDefault.NewDecoder(respWeb.Body).Decode(&reqWeb)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_to_decode").
+				Msg("failed to decode the webhook creation response")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed to decode the webhook creation response",
+			})
+			return
+		}
+
+		does_not_exists, err := h.RedisClient.SetNX(timeoutRepo, "oauth:github:webhook:hook_id:"+repoIDStr, reqWeb.ID, 0).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("failed to insert the webhook id inside redis due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to insert the webhook id inside redis",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("failed to insert the webhook id inside redis due to unrecognized error")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error while trying to insert the webhook id inside redis",
+			})
+			return
+		}
+		if !does_not_exists {
+			logger.Debug().
+				Int("status", http.StatusConflict).
+				Int64("repo_id", reqRepo.RepoID).
+				Str("repo_name", reqRepo.RepoName).
+				Msg("webhook id already exists, everything is healthy, skipping")
+			continue
+		}
+
+		wasRemoved, err = h.RedisClient.Persist(timeoutRepo, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Error().
+					Err(err).
+					Int("status", http.StatusRequestTimeout).
+					Str("cause", "timeout").
+					Msg("failed to make the redis webhook id persistent due to timeout")
+				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
+					Code:    "REQUEST_TIMEOUT",
+					Message: "Timedout while trying to make the webhook id persistent",
+				})
+				return
+			}
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "unrecognized").
+				Msg("hit an unrecognized error while trying to make the redis webhook id persistent")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Unrecognized error while trying to make the webhook id persistent",
+			})
+			return
+		}
+		if !wasRemoved {
+			logger.Error().
+				Int("status", http.StatusInternalServerError).
+				Str("cause", "failed_ttl_removal").
+				Msg("failed to remove the redis webhook id TTL to make the key persistent")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "Failed webhook id TTL removal",
 			})
 			return
 		}

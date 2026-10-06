@@ -167,7 +167,6 @@ func main() {
 		r.Get("/users/create/verify", k.VerifyRegistration)
 		r.Post("/users/login", k.LoginUser)
 		r.Post("/oauth/github/webhook/mock", oauthGithub.MockGithubWebHook)
-		r.Post("/oauth/github/webhook", g.GitHubWebhook)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -183,11 +182,16 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Route("/oauth", func(r chi.Router) {
-			r.Use(auth.Auth_Middleware)
+			r.Group(func(r chi.Router) {
+				r.Use(auth.Auth_Middleware)
+				r.With(authLimiter).Post("/github/redirect", g.GitHubRedirect)
+				r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
+				r.With(authLimiter).Post("/github/callback/mock", g.GitHubCallbackMock)
+			})
 
-			r.With(authLimiter).Post("/github/redirect", g.GitHubRedirect)
-			r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
-			r.With(authLimiter).Post("/github/callback/mock", g.GitHubCallbackMock)
+			r.Group(func(r chi.Router) {
+				r.Post("/github/webhook", g.GitHubWebhook)
+			})
 		})
 	})
 
