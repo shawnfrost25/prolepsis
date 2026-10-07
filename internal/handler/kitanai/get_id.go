@@ -16,7 +16,7 @@ import (
 )
 
 func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "GetUserByID").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "get_user_by_id").Logger()
 	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		// The function already handles the response and logging
@@ -27,9 +27,9 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	if idRaw == "" {
 		logger.Warn().
+			Str("code", "missing_id_parameter").
 			Int("status", http.StatusBadRequest).
-			Str("cause", "missing_id_parameter").
-			Msg("invalid request")
+			Msg("request rejected")
 
 		lib.Pretty(w, http.StatusBadRequest, lib.Error{
 			Code:    "BAD_REQUEST",
@@ -46,13 +46,13 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	var id pgtype.UUID
 	err := id.Scan(idRaw)
 	if err != nil {
-		logger.Error().
+		logger.Warn().
 			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_id_parsing").
-			Str("input", idRaw).
-			Msg("failed to turn string id into an uuid")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Int("status", http.StatusBadRequest).
+			Str("code", "invalid_id_format").
+			Str("provided_id", idRaw).
+			Msg("request rejected")
+		lib.Pretty(w, http.StatusBadRequest, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Couldn't successfully parse the given id",
 			Details: map[string]string{
@@ -67,16 +67,15 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	timeout, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
 
+	var pgErr *pgconn.PgError
+
 	info, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			logger.Warn().
-				Err(err).
 				Int("status", http.StatusNotFound).
-				Str("cause", "user_id_not_found").
-				Interface("input", id).
-				Msg("user not found in database")
-
+				Str("code", "user_not_found").
+				Msg("user not found")
 			lib.Pretty(w, http.StatusNotFound, lib.Error{
 				Code:    "NOT_FOUND",
 				Message: "The given id doesn't match any user in the database",
@@ -87,20 +86,49 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusGatewayTimeout).
+				Str("code", "user_lookup_timeout").
+				Msg("user lookup timed out")
+			lib.Pretty(w, http.StatusGatewayTimeout, lib.Error{
+				Code:    "GATEWAY_TIMEOUT",
+				Message: "The user lookup timed out",
+				Details: map[string]string{
+					"reason": "The user lookup was stopped due to timeout",
+					"fix":    "Please try again later",
+				},
+				TraceID: u.Trace,
+			})
+			return
+		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
 			logger.Error().
 				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Interface("input", id).
-				Msg("timedout while searching for the user matching the id")
+				Int("status", http.StatusInternalServerError).
+				Str("code", "database_connection_closed").
+				Msg("database connection closed")
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while validating the token",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
+				Message: "Failed user lookup",
+				TraceID: u.Trace,
+			})
+			return
+		}
+		if errors.As(err, &pgErr) {
+			logger.Error().
+				Err(err).
+				Int("status", http.StatusInternalServerError).
+				Str("code", "database_query_failed").
+				Str("constraint_name", pgErr.ConstraintName).
+				Str("database_status_code", pgErr.Code).
+				Str("database_detail", pgErr.Detail).
+				Str("database_hint", pgErr.Hint).
+				Msg("database failed")
+			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+				Code:    "INTERNAL_SERVER_ERROR",
+				Message: "An internal error occurred",
 				TraceID: u.Trace,
 			})
 			return
@@ -108,15 +136,12 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Interface("input", id).
-			Msg("unexptected error while matching the ID through the database")
+			Str("code", "user_lookup_failed").
+			Str("user_id", id.String()).
+			Msg("failed to retrieve user")
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An unrecognized error appeared while matching the ID",
-			Details: map[string]string{
-				"reason": "unrecognized",
-			},
+			Message: "An internal error occurred",
 			TraceID: u.Trace,
 		})
 		return

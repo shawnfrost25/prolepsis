@@ -29,6 +29,8 @@ const roleCtx contextKey = "userRole"
 const ipCtx contextKey = "userIP"
 const methodCtx contextKey = "userMethod"
 const pathCtx contextKey = "userPath"
+const timeCtx contextKey = "timeStarted"
+const durationCtx contextKey = "durationCtx"
 
 var queries *db.Queries
 var red *redis.Client
@@ -54,6 +56,8 @@ func Auth_Middleware(next http.Handler) http.Handler {
 			})
 			return
 		}
+
+		timeNow := time.Now()
 
 		parts := strings.SplitN(header, " ", 2)
 
@@ -236,6 +240,8 @@ func Auth_Middleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), idCtx, uuid)
 
 		ctx = context.WithValue(ctx, roleCtx, info.Role)
+		ctx = context.WithValue(ctx, timeCtx, timeNow)
+		ctx = context.WithValue(ctx, durationCtx, time.Since(timeNow))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -253,6 +259,7 @@ func Logger_Middleware(next http.Handler) http.Handler {
 		if ok {
 			userRole = string(valueRole)
 		}
+		timeNow := time.Now()
 
 		// Trying to strip the port from the IP - else defaulting to the IP with port (why people added it?!?!?)
 		userIP, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -271,21 +278,17 @@ func Logger_Middleware(next http.Handler) http.Handler {
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Str("role", userRole).
+			Time("started_at", timeNow).
 			Str("trace_id", trace).Logger()
 
-		// Cute replica:
-		//     type contextKey string
-		//     const zerologCtxKey contextKey = "userLogger"
-		//     ctx := context.WithValue(r.Context, zerologCtxKey, loggerReq)
-		// Why I pointed this out? No exact reason - just cute enough to nitpick around
 		ctx := loggerReq.WithContext(r.Context())
-		// We pass the trace here, because Logger is global (used by registration and login too)
 		ctx = context.WithValue(ctx, traceCtx, trace)
-		ctx = context.WithValue(ctx, ipCtx, userIP)
-		ctx = context.WithValue(ctx, methodCtx, r.Method)
-		ctx = context.WithValue(ctx, pathCtx, r.URL.Path)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
+
+		duration := time.Since(timeNow)
+
+		loggerReq.Info().Dur("duration", duration).Msg("request finished")
 	})
 }
 
@@ -331,13 +334,13 @@ func GetPath(ctx context.Context) (string, bool) {
 
 // We delete redundancy by using a simple function
 func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestContext, bool) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "FetchContext").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "fetch_context").Logger()
 	trace, ok := GetTrace(r.Context())
 	if !ok {
 		logger.Error().
 			Int("status", http.StatusInternalServerError).
-			Str("cause", "missing_tracing_context").
-			Msg("handler invoked without trace ID in context")
+			Str("code", "missing_trace_context").
+			Msg("missing request context")
 
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
@@ -353,8 +356,7 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	if !ok {
 		logger.Warn().
 			Int("status", http.StatusUnauthorized).
-			Str("cause", "missing_id_context").
-			Str("trace_id", trace).
+			Str("code", "missing_id_context").
 			Msg("unauthenticated request attempt")
 
 		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
@@ -371,15 +373,13 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 
 	role, ok := GetRole(r.Context())
 	if !ok {
-		logger.Warn().
-			Int("status", http.StatusForbidden).
-			Str("cause", "missing_role_context").
-			Str("user_id", id.String()).
-			Str("trace_id", trace).
-			Msg("user role context missing or invalid")
+		logger.Error().
+			Int("status", http.StatusInternalServerError).
+			Str("code", "missing_role_context").
+			Msg("missing request context")
 
-		lib.Pretty(w, http.StatusForbidden, lib.Error{
-			Code:    "FORBIDDEN",
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "User permissions could not be verified",
 			Details: map[string]string{
 				"reason": "user role missing from context",
@@ -391,16 +391,13 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 
 	ip, ok := GetIP(r.Context())
 	if !ok {
-		logger.Warn().
-			Int("status", http.StatusUnauthorized).
-			Str("cause", "missing_ip_context").
-			Str("user_id", id.String()).
-			Str("trace_id", trace).
-			Interface("role", role).
-			Msg("user role context missing or invalid")
+		logger.Error().
+			Int("status", http.StatusInternalServerError).
+			Str("code", "missing_ip_context").
+			Msg("missing request context")
 
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "User IP could not be verified",
 			Details: map[string]string{
 				"reason": "user ip missing from context",
@@ -413,15 +410,12 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	path, ok := GetPath(r.Context())
 	if !ok {
 		logger.Warn().
-			Int("status", http.StatusUnauthorized).
-			Str("cause", "missing_ip_context").
-			Str("user_id", id.String()).
-			Str("trace_id", trace).
-			Interface("role", role).
-			Msg("user path context missing or invalid")
+			Int("status", http.StatusInternalServerError).
+			Str("code", "missing_path_context").
+			Msg("missing request context")
 
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "User path could not be verified",
 			Details: map[string]string{
 				"reason": "user path missing from context",
@@ -434,15 +428,12 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	method, ok := GetMethod(r.Context())
 	if !ok {
 		logger.Warn().
-			Int("status", http.StatusUnauthorized).
-			Str("cause", "missing_method_context").
-			Str("user_id", id.String()).
-			Str("trace_id", trace).
-			Interface("role", role).
-			Msg("user method context missing or invalid")
+			Int("status", http.StatusInternalServerError).
+			Str("code", "missing_method_context").
+			Msg("missing request context")
 
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
+		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "User method could not be verified",
 			Details: map[string]string{
 				"reason": "user method missing from context",
