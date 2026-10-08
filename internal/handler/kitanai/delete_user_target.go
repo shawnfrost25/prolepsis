@@ -26,7 +26,7 @@ type DeleteRequestTarget struct {
 }
 
 func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "DeleteUser").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "delete_user").Logger()
 	riverClient := kitanaijob.New(h.RiverClient, h.Queries)
 
 	u, ok := auth.FetchContextInsideHandler(w, r)
