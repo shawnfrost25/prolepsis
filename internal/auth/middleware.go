@@ -5,10 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"strings"
 	"time"
@@ -337,109 +337,37 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "fetch_context").Logger()
 	trace, ok := GetTrace(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("code", "missing_trace_context").
-			Msg("missing request context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal server error occurred",
-			Details: map[string]string{
-				"reason": "request context pipeline uninitialized",
-			},
-		})
+		errlog.EmptyContextError(logger, "trace", w, trace)
 		return RequestContext{}, false
 	}
 
 	id, ok := GetID(r.Context())
 	if !ok {
-		logger.Warn().
-			Int("status", http.StatusUnauthorized).
-			Str("code", "missing_id_context").
-			Msg("unauthenticated request attempt")
-
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
-			Message: "Authentication required to access this resource",
-			Details: map[string]string{
-				"reason": "user identity missing from request context",
-				"fix":    "Include a valid 'Authorization: Bearer <token>' header",
-			},
-			TraceID: trace,
-		})
+		errlog.EmptyContextError(logger, "id", w, trace)
 		return RequestContext{}, false
 	}
 
 	role, ok := GetRole(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("code", "missing_role_context").
-			Msg("missing request context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "User permissions could not be verified",
-			Details: map[string]string{
-				"reason": "user role missing from context",
-			},
-			TraceID: trace,
-		})
+		errlog.EmptyContextError(logger, "role", w, trace)
 		return RequestContext{}, false
 	}
 
 	ip, ok := GetIP(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("code", "missing_ip_context").
-			Msg("missing request context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "User IP could not be verified",
-			Details: map[string]string{
-				"reason": "user ip missing from context",
-			},
-			TraceID: trace,
-		})
+		errlog.EmptyContextError(logger, "ip", w, trace)
 		return RequestContext{}, false
 	}
 
 	path, ok := GetPath(r.Context())
 	if !ok {
-		logger.Warn().
-			Int("status", http.StatusInternalServerError).
-			Str("code", "missing_path_context").
-			Msg("missing request context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "User path could not be verified",
-			Details: map[string]string{
-				"reason": "user path missing from context",
-			},
-			TraceID: trace,
-		})
+		errlog.EmptyContextError(logger, "path", w, trace)
 		return RequestContext{}, false
 	}
 
 	method, ok := GetMethod(r.Context())
 	if !ok {
-		logger.Warn().
-			Int("status", http.StatusInternalServerError).
-			Str("code", "missing_method_context").
-			Msg("missing request context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "User method could not be verified",
-			Details: map[string]string{
-				"reason": "user method missing from context",
-			},
-			TraceID: trace,
-		})
+		errlog.EmptyContextError(logger, "method", w, trace)
 		return RequestContext{}, false
 	}
 
@@ -451,45 +379,4 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 		Trace:  trace,
 		Path:   path,
 	}, true
-}
-
-func FetchContextOutsideHandler(ctx context.Context) (RequestContext, error) {
-	trace, ok := GetTrace(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_tracing_context")
-	}
-
-	id, ok := GetID(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_id_context")
-	}
-
-	role, ok := GetRole(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_role_context")
-	}
-
-	ip, ok := GetIP(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_ip_context")
-	}
-
-	path, ok := GetPath(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_path_context")
-	}
-
-	method, ok := GetMethod(ctx)
-	if !ok {
-		return RequestContext{}, fmt.Errorf("missing_method_context")
-	}
-
-	return RequestContext{
-		ID:     id,
-		IP:     ip,
-		Method: method,
-		Role:   role,
-		Trace:  trace,
-		Path:   path,
-	}, nil
 }
