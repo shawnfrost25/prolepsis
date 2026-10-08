@@ -58,7 +58,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "database_lookup_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_lookup", w, u.Trace, err)
