@@ -14,7 +14,7 @@ func NoRowsError(logger zerolog.Logger, subject string, w http.ResponseWriter, t
 		Str("code", subject+"_not_found").
 		Msg(subject + " not found")
 	lib.Pretty(w, http.StatusNotFound, lib.Error{
-		Code:    "BAD_REQUEST",
+		Code:    "NOT_FOUND",
 		Message: "Resource not found",
 		TraceID: trace,
 	})

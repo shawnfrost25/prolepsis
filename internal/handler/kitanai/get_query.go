@@ -5,11 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
@@ -28,7 +29,7 @@ type User struct {
 }
 
 func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "GetUserByQuery").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "get_users_by_query").Logger()
 	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		return
@@ -41,11 +42,11 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 	roleQuery := q.Get("role")
 
 	logger.Debug().
-		Str("display_name_filter", displayQuery).
-		Str("location_filter", locationQuery).
-		Str("sex_filter", sexQuery).
-		Str("birth_filter", birthQuery).
-		Str("role_filter", roleQuery).
+		Bool("display_name_filter", displayQuery != "").
+		Bool("location_filter", locationQuery != "").
+		Bool("sex_filter", sexQuery != "").
+		Bool("birth_filter", birthQuery != "").
+		Bool("role_filter", roleQuery != "").
 		Msg("processing get user by query request")
 
 	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
@@ -71,12 +72,12 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
-			Str("cause", "sql_builder_failed").
-			Msg("failed to generate SQL query statement")
+			Str("code", "sql_builder_failed").
+			Msg("sql generation failed")
 
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to generate SQL query statement",
+			Message: "An internal error occurred",
 			TraceID: u.Trace,
 		})
 		return
@@ -85,39 +86,21 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
+	var pgErr *pgconn.PgError
 	rows, err := h.Pool.Query(timeout, sqlCode, args...)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "user_query_not_found").
-				Msg("user not found in database")
-
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "The given query doesn't match any user in the database",
-				Details: map[string]string{
-					"reason": "no rows in the database match the given query",
-				},
-				TraceID: u.Trace,
-			})
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "database_query", w, u.Trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "database_query_failed").
-			Str("sql", sqlCode).
-			Msg("failed to fetch rows based on provided info")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to fetch rows based on provided info",
-			TraceID: u.Trace,
-		})
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, u.Trace, "database_query_failed", pgErr)
+			return
+		}
+		errlog.UnexpectedError(logger, "database_query", w, u.Trace, err)
 		return
 	}
+	defer rows.Close()
 
 	var result []User
 	for rows.Next() {
@@ -127,12 +110,12 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 			logger.Error().
 				Err(err).
 				Int("status", http.StatusInternalServerError).
-				Str("cause", "row_scan_failed").
-				Msg("failed to parse database records cleanly")
+				Str("code", "user_row_scan_failed").
+				Msg("user scan failed")
 
 			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Failed to parse database records cleanly",
+				Message: "An internal error occurred",
 				TraceID: u.Trace,
 			})
 			return
@@ -150,31 +133,19 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 		logger.Error().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
-			Str("cause", "row_iteration_failed").
-			Msg("error occurred during row iteration")
+			Str("code", "user_row_iteration_failed").
+			Msg("user iteration failed")
 
 		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
 			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error reading database rows",
+			Message: "An internal error occurred",
 			TraceID: u.Trace,
 		})
 		return
 	}
 
 	if len(result) == 0 {
-		logger.Warn().
-			Int("status", http.StatusNotFound).
-			Str("cause", "user_query_not_found").
-			Msg("no user matches the given query")
-		lib.Pretty(w, http.StatusNotFound, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "No user matches the given query",
-			Details: map[string]string{
-				"reason": "invalid request",
-				"fix":    "send a query that matches at least an user",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.NoRowsError(logger, "user", w, u.Trace)
 		return
 	}
 
