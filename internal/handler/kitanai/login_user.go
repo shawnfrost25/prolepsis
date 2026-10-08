@@ -98,7 +98,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.UnexpectedError(logger, "token_creation", w, trace, err)
+		errlog.UnexpectedError(logger, "token_create", w, trace, err)
 		return
 	}
 
@@ -107,28 +107,28 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "session_token_insertion", w, trace, err)
+			errlog.DeadlineExceededError(logger, "session_token_insert", w, trace, err)
 			return
 		}
 		if redis.IsAuthError(err) {
 			errlog.RedisAuthenticationError(logger, w, trace, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "session_token_insertion", w, trace, err)
+		errlog.UnexpectedError(logger, "session_token_insert", w, trace, err)
 		return
 	}
 
 	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "session_id_insertion", w, trace, err)
+			errlog.DeadlineExceededError(logger, "session_id_insert", w, trace, err)
 			return
 		}
 		if redis.IsAuthError(err) {
 			errlog.RedisAuthenticationError(logger, w, trace, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "session_id_insertion", w, trace, err)
+		errlog.UnexpectedError(logger, "session_id_insert", w, trace, err)
 		return
 	}
 	if insertedFields == 0 {
