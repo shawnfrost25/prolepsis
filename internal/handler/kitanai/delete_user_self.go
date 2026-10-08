@@ -37,14 +37,14 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 		_, err := h.RedisClient.Del(ctx, "session:id:"+id).Result()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "session_id_deletion", w, u.Trace, err)
+				errlog.DeadlineExceededError(logger, "session_id_delete", w, u.Trace, err)
 				return true
 			}
 			if redis.IsAuthError(err) {
 				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
 				return true
 			}
-			errlog.UnexpectedError(logger, "session_id_deletion", w, u.Trace, err)
+			errlog.UnexpectedError(logger, "session_id_delete", w, u.Trace, err)
 			return true
 		}
 		return false
@@ -54,14 +54,14 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 		tokens, err := h.RedisClient.SMembers(ctx, "session:id:"+id).Result()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "session_id_fetching", w, u.Trace, err)
+				errlog.DeadlineExceededError(logger, "session_id_fetch", w, u.Trace, err)
 				return true
 			}
 			if redis.IsAuthError(err) {
 				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
 				return true
 			}
-			errlog.UnexpectedError(logger, "session_id_fetching", w, u.Trace, err)
+			errlog.UnexpectedError(logger, "session_id_fetch", w, u.Trace, err)
 			return true
 		}
 
@@ -69,14 +69,14 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 			_, err = h.RedisClient.Del(ctx, "session:token:"+token).Result()
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					errlog.DeadlineExceededError(logger, "session_token_deletion", w, u.Trace, err)
+					errlog.DeadlineExceededError(logger, "session_token_delete", w, u.Trace, err)
 					return true
 				}
 				if redis.IsAuthError(err) {
 					errlog.RedisAuthenticationError(logger, w, u.Trace, err)
 					return true
 				}
-				errlog.UnexpectedError(logger, "session_token_deletion", w, u.Trace, err)
+				errlog.UnexpectedError(logger, "session_token_delete", w, u.Trace, err)
 				return true
 			}
 		}
@@ -111,7 +111,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 	if req.Acceptance != "CONFIRM" {
 		logger.Warn().
 			Int("status", http.StatusForbidden).
-			Str("code", "missing_confirmation").
+			Str("code", "missing_confirm").
 			Msg("request rejected")
 		lib.Pretty(w, http.StatusForbidden, lib.Error{
 			Code:    "FORBIDDEN",
@@ -157,7 +157,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_deletion_request", w, u.Trace, err)
+			errlog.DeadlineExceededError(logger, "user_delete_request", w, u.Trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -165,10 +165,10 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_deletion_request_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr)
 			return
 		}
-		errlog.UnexpectedError(logger, "user_deletion_request", w, u.Trace, err)
+		errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info().
 		Int("status", http.StatusOK).
-		Str("cause", "inserted_pending_deletion").
+		Str("code", "inserted_pending_delete").
 		Msg("successfully registered self-deletion request")
 	lib.Pretty(w, http.StatusOK, map[string]string{
 		"status": "succeeded",
