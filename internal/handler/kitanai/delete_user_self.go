@@ -128,7 +128,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 	if u.Role == "admin" {
 		remaining, err := h.Queries.CheckAdminCount(timeout)
 		if err != nil {
-			errlog.UnexpectedError(logger, "existence_check", w, u.Trace, err)
+			errlog.UnexpectedError(logger, "admin_count_check", w, u.Trace, err)
 			return
 		}
 
