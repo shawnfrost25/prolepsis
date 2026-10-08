@@ -46,11 +46,11 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	info, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NoRowsError(logger, "user", w, u.Trace)
+			errlog.NoRowsError(logger, "user_lookup_by_id", w, u.Trace)
 			return
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_lookup", w, u.Trace, err)
+			errlog.DeadlineExceededError(logger, "user_lookup_by_id", w, u.Trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -58,10 +58,10 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_lookup_by_id_failed", pgErr)
 			return
 		}
-		errlog.UnexpectedError(logger, "user_lookup", w, u.Trace, err)
+		errlog.UnexpectedError(logger, "user_lookup_by_id", w, u.Trace, err)
 		return
 	}
 
