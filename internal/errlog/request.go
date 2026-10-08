@@ -25,7 +25,7 @@ func DecodeError(logger zerolog.Logger, w http.ResponseWriter, trace string, err
 	})
 }
 
-func TimeoutError(logger zerolog.Logger, subject string, w http.ResponseWriter, trace string, err error) {
+func DeadlineExceededError(logger zerolog.Logger, subject string, w http.ResponseWriter, trace string, err error) {
 	subjectMsg := strings.ReplaceAll(subject, "_", " ")
 	logger.Error().
 		Err(err).

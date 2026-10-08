@@ -50,7 +50,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.TimeoutError(logger, "user_lookup", w, u.Trace, err)
+			errlog.DeadlineExceededError(logger, "user_lookup", w, u.Trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
