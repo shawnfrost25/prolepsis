@@ -98,3 +98,15 @@ func ForbiddenError(logger zerolog.Logger, subject string, w http.ResponseWriter
 		TraceID: trace,
 	})
 }
+
+func ConflictError(logger zerolog.Logger, subject string, w http.ResponseWriter, trace string) {
+	logger.Warn().
+		Int("status", http.StatusConflict).
+		Str("code", subject+"_already_exists").
+		Msg("given resource already exists")
+	lib.Pretty(w, http.StatusConflict, lib.Error{
+		Code:    "CONFLICT",
+		Message: "A resource with the provided identifier already exists",
+		TraceID: trace,
+	})
+}
