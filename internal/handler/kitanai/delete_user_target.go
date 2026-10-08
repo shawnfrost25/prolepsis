@@ -8,6 +8,7 @@ import (
 
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	kitanaijob "prolepsis/internal/job/kitanai"
 	"prolepsis/internal/lib"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -36,31 +38,16 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		_, err := h.RedisClient.Del(ctx, "session:id:"+id).Result()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Msg("timedout while trying to delete user's session (id) inside Redis")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Couldn't continue due to timeout while deleting user's session",
-					TraceID: u.Trace,
-				})
+				errlog.DeadlineExceededError(logger, "session_id_deletion", w, u.Trace, err)
 				return true
 			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Msg("unrecognized error while trying to delete user's session (id)")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Unrecognized error while deleting user's session",
-				TraceID: u.Trace,
-			})
+			if redis.IsAuthError(err) {
+				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
+				return true
+			}
+			errlog.UnexpectedError(logger, "session_id_deletion", w, u.Trace, err)
 			return true
 		}
-
 		return false
 	}
 
@@ -68,74 +55,32 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		tokens, err := h.RedisClient.SMembers(ctx, "session:id:"+id).Result()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Msg("timedout while trying to fetch all the sessions connected to the given id")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Timeout while trying to match the given id to across multiple sessions",
-					TraceID: u.Trace,
-				})
+				errlog.DeadlineExceededError(logger, "session_id_fetching", w, u.Trace, err)
 				return true
 			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Msg("unrecognized error while trying to query through sessions with the provided id")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Unspecified error while querying through the available sessions",
-				TraceID: u.Trace,
-			})
-			return true
-		}
-		if len(tokens) == 0 {
-			logger.Warn().
-				Int("status", http.StatusNotFound).
-				Str("cause", "session_not_found").
-				Str("provided_id", id).
-				Msg("the provided id doesn't match any session inside Redis")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "The provided id is invalid",
-				TraceID: u.Trace,
-			})
+			if redis.IsAuthError(err) {
+				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
+				return true
+			}
+			errlog.UnexpectedError(logger, "session_id_fetching", w, u.Trace, err)
 			return true
 		}
 
 		for _, token := range tokens {
-			_, err = h.RedisClient.Del(ctx, "session:token:"+token).Result()
+			_, err := h.RedisClient.Del(ctx, "session:token:"+token).Result()
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					logger.Error().
-						Err(err).
-						Int("status", http.StatusRequestTimeout).
-						Str("cause", "timeout").
-						Msg("timedout while trying to delete user's session (token) inside Redis")
-					lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-						Code:    "REQUEST_TIMEOUT",
-						Message: "Couldn't continue due to timeout while deleting user's session",
-						TraceID: u.Trace,
-					})
+					errlog.DeadlineExceededError(logger, "session_token_deletion", w, u.Trace, err)
 					return true
 				}
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("cause", "unrecognized").
-					Msg("unrecognized error while trying to delete user's session (token)")
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Unrecognized error while deleting user's session",
-					TraceID: u.Trace,
-				})
+				if redis.IsAuthError(err) {
+					errlog.RedisAuthenticationError(logger, w, u.Trace, err)
+					return true
+				}
+				errlog.UnexpectedError(logger, "session_token_deletion", w, u.Trace, err)
 				return true
 			}
 		}
-
 		return false
 	}
 
@@ -143,57 +88,20 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		err := riverClient.SetupDeletionAlarm(ctx, scheduled_at, userID)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Msg("river alarm ended up timing out, retry")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Couldn't start the alarm due to timeout",
-					TraceID: u.Trace,
-				})
+				errlog.DeadlineExceededError(logger, "river_setup", w, u.Trace, err)
 				return true
 			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Msg("unrecognized while trying to start the alarm")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Couldn't start alarm due to unrecognized error",
-				TraceID: u.Trace,
-			})
+			errlog.UnexpectedError(logger, "river_setup", w, u.Trace, err)
 			return true
 		}
-
 		return false
 	}
 
 	var req DeleteRequestTarget
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusBadRequest).
-			Str("cause", "invalid_decode_request").
-			Msg("couldn't decode request payload")
-
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The given request is invalid. Failed to decode the request.",
-			Details: map[string]string{
-				"reason": "invalid request payload",
-				"fix":    "follow the recommendations and given format to successfully continue",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.DecodeError(logger, w, u.Trace, err)
 		return
-	}
-
-	if req.Clarification == "" {
-		req.Clarification = "Unknown"
 	}
 
 	timeout, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -201,103 +109,45 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "missing_id_parameter").
-			Msg("missing required path parameter")
-
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The given parameter for 'id' is empty",
-			Details: map[string]string{
-				"reason": "missing value for the 'id' parameter",
-				"fix":    "Include the value for the missing parameter",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.EmptyValueError(logger, "id_parameter", w, u.Trace)
 		return
 	}
 
 	var id pgtype.UUID
 	err = id.Scan(idStr)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_id_parsing").
-			Str("input", idStr).
-			Msg("failed to parse string id into uuid type")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Couldn't successfully parse the given id",
-			Details: map[string]string{
-				"reason": "invalid given id format",
-				"fix":    "please, check the token to be right, or send trace",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.ParsingError(logger, "id_format", w, u.Trace, err)
 		return
 	}
 
 	logger = logger.With().Str("target_id", id.String()).Logger()
+	var pgErr *pgconn.PgError
 
 	infoUS, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "user_not_found").
-				Msg("target user not found in database")
-
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "The given id doesn't match any user in the database",
-				Details: map[string]string{
-					"reason": "no rows in the database match the given ID",
-				},
-				TraceID: u.Trace,
-			})
+			errlog.NoRowsError(logger, "user", w, u.Trace)
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "user_lookup", w, u.Trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("timed out while searching for the user matching the id")
-
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while validating the target user",
-				Details: map[string]string{
-					"reason": "database timeout",
-					"fix":    "Please try again later",
-				},
-				TraceID: u.Trace,
-			})
+			errlog.ErrConnClosed(logger, w, u.Trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unexpected error while fetching user from database")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An unrecognized error appeared while matching the ID",
-			Details: map[string]string{
-				"reason": "unrecognized system error",
-			},
-			TraceID: u.Trace,
-		})
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr)
+			return
+		}
+		errlog.UnexpectedError(logger, "user_lookup", w, u.Trace, err)
 		return
 	}
 
 	// Welp, the owner can delete everyone and evreything without grace time
-	if u.Role == "owner" {
+	switch u.Role {
+	case "owner":
 		failedTokens := deleteSessionTokens(timeout, idStr)
 		if failedTokens {
 			// We handle the errors inside the closure
@@ -309,69 +159,45 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		err := h.Queries.DeleteUser(timeout, id)
 		if err != nil {
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				logger.Error().Err(err).Str("cause", "timeout").Msg("timed out while owner tried to delete user")
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "An error occurred while trying to delete the user from the database",
-					TraceID: u.Trace,
-				})
+			if errors.Is(err, pgx.ErrNoRows) {
+				errlog.NoRowsError(logger, "user", w, u.Trace)
 				return
 			}
-			logger.Error().Err(err).Str("cause", "unrecognized").Msg("unknown error while owner tried to delete user")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Unrecognized error while trying to delete the user from the database",
-				TraceID: u.Trace,
-			})
+			if errors.Is(err, context.DeadlineExceeded) {
+				errlog.DeadlineExceededError(logger, "user_deletion", w, u.Trace, err)
+				return
+			}
+			if errors.Is(err, pgconn.ErrConnClosed) {
+				errlog.ErrConnClosed(logger, w, u.Trace, err)
+				return
+			}
+			if errors.As(err, &pgErr) {
+				errlog.PgConnError(logger, w, u.Trace, "user_deletion_failed", pgErr)
+				return
+			}
+			errlog.UnexpectedError(logger, "user_deletion", w, u.Trace, err)
 			return
 		}
-
-		logger.Info().Msg("owner successfully deleted all target user sessions directly")
-		lib.Pretty(w, http.StatusNoContent, lib.Error{
-			Code:    "NO_CONTENT",
-			Message: "User successfully deleted",
-		})
+		logger.Info().Int("status", http.StatusNoContent).
+			Str("code", "user_deleted").
+			Msg("owner successfully deleted target")
+		lib.Pretty(w, http.StatusNoContent, nil)
 		return
-	}
 
-	// User cannot delete nobody (beside themselves)
-	if u.Role == "user" {
-		logger.Warn().
-			Int("status", http.StatusForbidden).
-			Str("cause", "no_permissions_for_action").
-			Msg("unauthorized attempt by a regular user to delete another user's account")
-
-		lib.Pretty(w, http.StatusForbidden, lib.Error{
-			Code:    "FORBIDDEN",
-			Message: "You do not have permission to delete another user's account",
-			Details: map[string]string{
-				"reason": "insufficient permissions",
-				"fix":    "you may only initiate deletion for your own account",
-			},
-			TraceID: u.Trace,
-		})
+		// User cannot delete nobody (beside themselves)
+	case "user":
+		errlog.ForbiddenError(logger, "user_deletion", w, u.Trace)
 		return
-	}
 
 	// An admin cannot delete the owner or another admin
-	if u.Role == "admin" {
+	case "admin":
 		if infoUS.Role == "owner" || infoUS.Role == "admin" {
-			logger.Warn().
-				Int("status", http.StatusForbidden).
-				Str("cause", "hierarchy_violation").
-				Msg("admin attempted to delete an account with equal or higher privileges")
-
-			lib.Pretty(w, http.StatusForbidden, lib.Error{
-				Code:    "FORBIDDEN",
-				Message: "Cannot proceed with the action, not enough permissions",
-				TraceID: u.Trace,
-			})
+			errlog.ForbiddenError(logger, "user_deletion", w, u.Trace)
 			return
 		}
 
 		if infoUS.Role == "worker" {
-			logger.Info().
+			logger.Debug().
 				Str("target_name", infoUS.Name).
 				Msg("admin requested the deletion of a worker, inserting into pending deletions")
 
@@ -391,29 +217,19 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 				Clarification: req.Clarification,
 			})
 			if err != nil {
-				if errors.Is(err, pgconn.ErrConnClosed) {
-					logger.Error().
-						Err(err).
-						Int("status", http.StatusRequestTimeout).
-						Str("cause", "timeout").
-						Msg("timedout while trying to inssert the user inside the pending_deletion")
-					lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-						Code:    "REQUEST_TIMEOUT",
-						Message: "Timeout while trying to insert the reuqest inside the pending deletions",
-						TraceID: u.Trace,
-					})
+				if errors.Is(err, context.DeadlineExceeded) {
+					errlog.DeadlineExceededError(logger, "user_deletion_request", w, u.Trace, err)
 					return
 				}
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("cause", "unrecognized").
-					Msg("failed to insert self-deletion request into pending deletions")
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "An error occurred while trying to register the deletion request",
-					TraceID: u.Trace,
-				})
+				if errors.Is(err, pgconn.ErrConnClosed) {
+					errlog.ErrConnClosed(logger, w, u.Trace, err)
+					return
+				}
+				if errors.As(err, &pgErr) {
+					errlog.PgConnError(logger, w, u.Trace, "user_deletion_request_failed", pgErr)
+					return
+				}
+				errlog.UnexpectedError(logger, "user_deletion_request", w, u.Trace, err)
 				return
 			}
 
@@ -424,8 +240,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 			logger.Info().
 				Int("status", http.StatusOK).
-				Str("cause", "successfully_inserted_pending_deletion").
-				Msg("successfully registered self-deletion request")
+				Str("code", "inserted_pending_deletion").
+				Msg("successfully registered request")
 			lib.Pretty(w, http.StatusOK, map[string]string{
 				"status": "succeeded",
 			})
@@ -445,34 +261,37 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 		err = h.Queries.DeleteUser(timeout, id)
 		if err != nil {
-			logger.Error().Err(err).Msg("admin failed to delete user account directly")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while trying to delete the user from the database",
-				TraceID: u.Trace,
-			})
+			if errors.Is(err, pgx.ErrNoRows) {
+				errlog.NoRowsError(logger, "user", w, u.Trace)
+				return
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				errlog.DeadlineExceededError(logger, "user_deletion", w, u.Trace, err)
+				return
+			}
+			if errors.Is(err, pgconn.ErrConnClosed) {
+				errlog.ErrConnClosed(logger, w, u.Trace, err)
+				return
+			}
+			if errors.As(err, &pgErr) {
+				errlog.PgConnError(logger, w, u.Trace, "user_deletion_failed", pgErr)
+				return
+			}
+			errlog.UnexpectedError(logger, "user_deletion", w, u.Trace, err)
 			return
 		}
 
-		logger.Info().Msg("admin successfully deleted target user account directly")
-		lib.Pretty(w, http.StatusOK, map[string]string{
-			"status": "succeeded",
-		})
+		logger.Info().
+			Int("status", http.StatusOK).
+			Str("code", "user_deleted").
+			Str("admin_id", u.ID.String()).
+			Msg("admin successfully deleted target")
+		lib.Pretty(w, http.StatusOK, nil)
 		return
-	}
 
-	if u.Role == "worker" {
+	case "worker":
 		if infoUS.Role != "user" {
-			logger.Warn().
-				Int("status", http.StatusForbidden).
-				Str("cause", "hierarchy_violation").
-				Msg("worker attempted to delete a user with equal or higher privileges")
-
-			lib.Pretty(w, http.StatusForbidden, lib.Error{
-				Code:    "FORBIDDEN",
-				Message: "Cannot proceed with the action, not enough permissions",
-				TraceID: u.Trace,
-			})
+			errlog.ForbiddenError(logger, "user_deletion", w, u.Trace)
 			return
 		}
 
@@ -492,29 +311,19 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 			Clarification: req.Clarification,
 		})
 		if err != nil {
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Msg("timedout while trying to inssert the user inside the pending_deletion")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Timeout while trying to insert the reuqest inside the pending deletions",
-					TraceID: u.Trace,
-				})
+			if errors.Is(err, context.DeadlineExceeded) {
+				errlog.DeadlineExceededError(logger, "user_deletion_request", w, u.Trace, err)
 				return
 			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Msg("failed to insert self-deletion request into pending deletions")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while trying to register the deletion request",
-				TraceID: u.Trace,
-			})
+			if errors.Is(err, pgconn.ErrConnClosed) {
+				errlog.ErrConnClosed(logger, w, u.Trace, err)
+				return
+			}
+			if errors.As(err, &pgErr) {
+				errlog.PgConnError(logger, w, u.Trace, "user_deletion_request_failed", pgErr)
+				return
+			}
+			errlog.UnexpectedError(logger, "user_deletion_request", w, u.Trace, err)
 			return
 		}
 
@@ -523,17 +332,16 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logger.Info().Msg("worker successfully inserted target user into pending deletions")
+		logger.Info().
+			Int("status", http.StatusOK).
+			Str("code", "inserted_deletion_request").
+			Str("worker_id", u.ID.String()).
+			Msg("worker successfully inserted deletion request")
 		lib.Pretty(w, http.StatusOK, map[string]string{
 			"status": "succeeded",
 		})
 		return
 	}
 
-	logger.Error().Msg("unrecognized role reached the end of the deletion handler")
-	lib.Pretty(w, http.StatusForbidden, lib.Error{
-		Code:    "FORBIDDEN",
-		Message: "Unrecognized role permissions",
-		TraceID: u.Trace,
-	})
+	errlog.UnauthorizedError(logger, "nonexistent_role", w, u.Trace, nil)
 }

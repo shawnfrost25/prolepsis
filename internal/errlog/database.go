@@ -12,7 +12,7 @@ func NoRowsError(logger zerolog.Logger, subject string, w http.ResponseWriter, t
 	logger.Warn().
 		Int("status", http.StatusNotFound).
 		Str("code", subject+"_not_found").
-		Msg(subject + " not found")
+		Msg(subject + " not found inside database")
 	lib.Pretty(w, http.StatusNotFound, lib.Error{
 		Code:    "NOT_FOUND",
 		Message: "Resource not found",
