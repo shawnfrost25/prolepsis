@@ -110,3 +110,32 @@ func ConflictError(logger zerolog.Logger, subject string, w http.ResponseWriter,
 		TraceID: trace,
 	})
 }
+
+func MalformedError(logger zerolog.Logger, subject string, w http.ResponseWriter, trace string) {
+	subjectMsg := strings.ReplaceAll(subject, "_", " ")
+	logger.Warn().
+		Int("status", http.StatusBadRequest).
+		Str("cause", "malformed_"+subject).
+		Msg(subjectMsg + " is invalid")
+	lib.Pretty(w, http.StatusBadRequest, lib.Error{
+		Code:    "BAD_REQUEST",
+		Message: "Invalid resource",
+		Details: map[string]string{
+			"reason": "the given resource does not comply with the requirements",
+		},
+		TraceID: trace,
+	})
+}
+
+func GenerateError(logger zerolog.Logger, subject string, w http.ResponseWriter, trace string, err error) {
+	subjectMsg := strings.ReplaceAll(subject, "_", " ")
+	logger.Error().
+		Err(err).
+		Int("status", http.StatusInternalServerError).
+		Str("cause", "failed_"+subject+"_generation").
+		Msg("failed to create " + subjectMsg)
+	lib.Pretty(w, http.StatusInternalServerError, lib.Error{
+		Code:    "INTERNAL_SERVER_ERROR",
+		Message: "An internal error occurred",
+	})
+}

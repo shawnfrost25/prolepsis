@@ -103,7 +103,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	device := lib.ExtractDevice(r)
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.UnexpectedError(logger, "token_creation", w, trace, err)
+		errlog.GenerateError(logger, "token_creation", w, trace, err)
 		return
 	}
 
@@ -186,7 +186,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	hashToken := auth.HashToken(token)
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		errlog.UnexpectedError(logger, "password_hash", w, trace, err)
+		errlog.GenerateError(logger, "password_hash", w, trace, err)
 		return
 	}
 	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)

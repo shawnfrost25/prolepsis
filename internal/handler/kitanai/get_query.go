@@ -69,17 +69,7 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 
 	sqlCode, args, err := data.ToSql()
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("code", "sql_builder_failed").
-			Msg("sql generation failed")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal error occurred",
-			TraceID: u.Trace,
-		})
+		errlog.GenerateError(logger, "sql", w, u.Trace, err)
 		return
 	}
 

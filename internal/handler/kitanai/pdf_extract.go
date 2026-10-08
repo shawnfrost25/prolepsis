@@ -68,39 +68,14 @@ func (h *Handler) ExtractPdf(w http.ResponseWriter, r *http.Request) {
 
 	// Not a pdf - scary
 	if !bytes.HasPrefix(rawPdf, []byte("%PDF")) {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("code", "invalid_extension").
-			Msg("the provided file is not a pdf")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The provided file is not a pdf",
-			Details: map[string]string{
-				"reason": "not a pdf",
-				"fix":    "watch at the file you are about to send and be sure it has the extension '.pdf'",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.MalformedError(logger, "file_content", w, u.Trace)
 		return
 	}
 
 	// Still not a pdf - scary
 	contentType := http.DetectContentType(rawPdf[:512])
 	if contentType != "application/pdf" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("code", "invalid_extension").
-			Str("exact_reason", "missing 'application/pdf' header").
-			Msg("the provided file is not a pdf")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The provided file is not a pdf",
-			Details: map[string]string{
-				"reason": "not a pdf",
-				"fix":    "watch at the file you are about to send and be sure it has the extension '.pdf'",
-			},
-			TraceID: u.Trace,
-		})
+		errlog.MalformedError(logger, "file_content_type", w, u.Trace)
 		return
 	}
 
