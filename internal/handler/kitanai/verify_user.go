@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -21,38 +23,16 @@ type VerificationResponse struct {
 }
 
 func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "VerifyRegistrations").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "verify_registration").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "missing_tracing_context").
-			Msg("handler invoked without trace ID in context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal server error occurred",
-			Details: map[string]string{
-				"reason": "request context pipeline uninitialized",
-			},
-		})
+		errlog.EmptyContextError(logger, "trace", w, trace)
 		return
 	}
 
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		logger.Warn().
-			Int("status", http.StatusUnauthorized).
-			Str("cause", "missing_token_query").
-			Msg("no token query was provided via the request")
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
-			Message: "No token was provided via the request",
-			Details: map[string]string{
-				"reason": "missing token",
-				"fix":    "enter the email given as registration and click the link given by 'Prolepsis'",
-			},
-		})
+		errlog.EmptyValueError(logger, "token_query", w, trace)
 		return
 	}
 
@@ -62,89 +42,32 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	hashToken := auth.HashToken(token)
 
 	if len(hashToken) != 64 {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "invalid_token_request").
-			Str("token", token).
-			Msg("the given token is malformed")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "The given token is malformed, please retry",
-			Details: map[string]string{
-				"reason": "malformed token",
-				"fix":    "enter the email you added in the registrations and check for the token, copy it and paste here",
-			},
-			TraceID: trace,
-		})
+		errlog.MalformedError(logger, "token_length", w, trace)
 		return
 	}
 
 	val, err := h.RedisClient.HGetAll(timeout, "pending:registration:token:"+hashToken).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Str("input", hashToken).
-				Msg("timedout while searching for the user matching the token")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while validating the token",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "registration_token_fetch", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_pending_registrations_fetching").
-			Str("input", hashToken).
-			Msg("unexpected error while fetching info")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Database fetching failed",
-			TraceID: trace,
-		})
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "registration_token_fetch", w, trace, err)
 		return
 	}
 	if len(val) == 0 {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusNotFound).
-			Str("cause", "user_token_not_found").
-			Str("input", hashToken).
-			Msg("user not found in database, token expired")
-
-		lib.Pretty(w, http.StatusNotFound, lib.Error{
-			Code:    "NOT_FOUND",
-			Message: "The given token doesn't match any user in the database, token expired",
-			Details: map[string]string{
-				"reason": "no rows in the database match the given token",
-				"fix":    "retry the registration, so it will send another token",
-			},
-			TraceID: trace,
-		})
+		errlog.RedisNilError(logger, "registration_token", w, trace, err)
 		return
 	}
 
 	var birth pgtype.Date
 	birth1, err := time.Parse(time.DateOnly, val["birth_date"])
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "birth_date_error").
-			Msg("couldn't safely turn birt_date (type string) to birth_date (type pgtype.Date)")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while parsing birth_date",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "birth_date_format", w, trace, err)
 		return
 	}
 
@@ -152,19 +75,12 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.NewRandom()
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "id_generation_error").
-			Msg("couldn't safely create an uuid")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while creating uuid",
-			TraceID: trace,
-		})
+		errlog.GenerateError(logger, "uuid", w, trace, err)
 		return
 	}
 	uuid := pgtype.UUID{Bytes: id, Valid: true}
+
+	var pgErr *pgconn.PgError
 
 	info, err := h.Queries.SecondStepRegisterUser(timeout, db.SecondStepRegisterUserParams{
 		ID:           uuid,
@@ -176,49 +92,25 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: val["password_hash"],
 	})
 	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Str("input", hashToken).
-				Msg("timedout while inserting data to database")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while inserting data",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-				TraceID: trace,
-			})
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "user_create", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_user_creation").
-			Msg("unexpected error while creating user")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to create user from pending registrations to users",
-			TraceID: trace,
-		})
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+			return
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "user_create_failed", pgErr)
+			return
+		}
+		errlog.UnexpectedError(logger, "user_create", w, trace, err)
 		return
 	}
 
 	tokenS, err := auth.CreateToken()
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "token_fetching_failed").
-			Msg("couldn't create token")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unexpected error while creating the token",
-			TraceID: trace,
-		})
+		errlog.GenerateError(logger, "token", w, trace, err)
 		return
 	}
 	hashToken = auth.HashToken(tokenS)
@@ -226,103 +118,44 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Str("input", hashToken).
-				Msg("timedout while trying to create a new session")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while trying to create a new session",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "session_token_insert", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "token_creation_failed").
-			Str("id", info.ID.String()).
-			Msg("couldn't create token inside database")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while trying to create the session token",
-		})
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "session_token_insert", w, trace, err)
 		return
 	}
 	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Str("input", hashToken).
-				Msg("timedout while trying to create a new session")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An error occurred while trying to create a new session",
-				Details: map[string]string{
-					"reason": "database error",
-					"fix":    "Please try again later",
-				},
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "session_id_insert", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "token_creation_failed").
-			Str("id", info.ID.String()).
-			Msg("couldn't create token inside database")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while trying to create the session token",
-		})
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "session_id_insert", w, trace, err)
 		return
 	}
 	if insertedFields == 0 {
-		logger.Error().
-			Str("user_id", info.ID.String()).
-			Msg("SAdd returned 0 during registration. Token collision or duplicate request detected.")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "REGISTRATION_SESSION_ERROR",
-			Message: "An error occurred while establishing your session. Please try logging in.",
-			TraceID: trace,
-		})
+		errlog.ConflictError(logger, "session_id", w, trace)
 		return
 	}
 	_, err = h.RedisClient.Expire(timeout, "session:id:"+info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("timedout while trying to add an expiration time to 'session:id:'")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timeout error while trying to add an expiration time",
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "session_id_ttl", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "token_expiration_failed").
-			Str("id", info.ID.String()).
-			Msg("couldn't add expiration time for the session id")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Error while trying to add expiration tme to session id",
-		})
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "session_id_ttl", w, trace, err)
 		return
 	}
 

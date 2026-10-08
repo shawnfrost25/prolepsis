@@ -98,7 +98,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.UnexpectedError(logger, "token_create", w, trace, err)
+		errlog.GenerateError(logger, "token_create", w, trace, err)
 		return
 	}
 
