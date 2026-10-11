@@ -5,15 +5,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/rs/zerolog"
 	"net/http"
 	"prolepsis/internal/auth"
-	"prolepsis/internal/lib"
+	"prolepsis/internal/errlog"
 	"time"
+
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 )
 
 func (h *GitHubHandler) GitHubRedirect(w http.ResponseWriter, r *http.Request) {
-	logger := zerolog.Ctx(r.Context()).With().Str("handler", "GitHubRedirect").Logger()
+	logger := zerolog.Ctx(r.Context()).With().Str("op", "github_redirect").Logger()
 	u, ok := auth.FetchContextInsideHandler(w, r)
 	if !ok {
 		return
@@ -25,15 +27,7 @@ func (h *GitHubHandler) GitHubRedirect(w http.ResponseWriter, r *http.Request) {
 	n := make([]byte, 16)
 	_, err := rand.Read(n)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("failed to insert cryptographically secure bytes due to an urecognized error")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to Read due to an unrecognized error",
-		})
+		errlog.GenerateError(logger, "bytes_read", w, u.Trace, err)
 		return
 	}
 	state := hex.EncodeToString(n)
@@ -41,27 +35,13 @@ func (h *GitHubHandler) GitHubRedirect(w http.ResponseWriter, r *http.Request) {
 	_, err = h.RedisClient.Set(timeout, "oauth:github:state:"+state, u.ID.String(), 10*time.Minute).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("could not create state due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timeout while trying to create state",
-				TraceID: u.Trace,
-			})
+			errlog.DeadlineExceededError(logger, "state_insert", w, u.Trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_state_creation").
-			Msg("could not create state due to unrecognized error")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Could not cretae state",
-			TraceID: u.Trace,
-		})
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, u.Trace, err)
+		}
+		errlog.UnexpectedError(logger, "state_insert", w, u.Trace, err)
 		return
 	}
 

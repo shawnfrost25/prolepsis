@@ -179,7 +179,6 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info().
 		Int("status", http.StatusOK).
-		Str("code", "inserted_pending_delete").
 		Msg("successfully registered self-deletion request")
 	lib.Pretty(w, http.StatusOK, map[string]string{
 		"status": "succeeded",

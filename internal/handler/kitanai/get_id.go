@@ -34,7 +34,7 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	var id pgtype.UUID
 	err := id.Scan(idRaw)
 	if err != nil {
-		errlog.ParsingError(logger, "uuid_format", w, u.Trace, err)
+		errlog.ParsingError(logger, "id_format", w, u.Trace, err)
 		return
 	}
 

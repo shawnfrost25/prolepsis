@@ -334,7 +334,6 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 		logger.Info().
 			Int("status", http.StatusOK).
-			Str("code", "inserted_delete_request").
 			Str("worker_id", u.ID.String()).
 			Msg("worker successfully inserted deletion request")
 		lib.Pretty(w, http.StatusOK, map[string]string{

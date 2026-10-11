@@ -32,7 +32,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	var req GitHubIssues
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		errlog.ParsingError(logger, "issue_format", w, trace, err)
+		errlog.ParsingError(logger, "issues_format", w, trace, err)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	}
 
 	if req.IssueInfo.Title == "" {
-		errlog.EmptyValueError(logger, "issue_title", w, trace)
+		errlog.EmptyValueError(logger, "issues_title", w, trace)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	negativeReactions := req.IssueInfo.Reactions.Confused + req.IssueInfo.Reactions.NegativeReaction
 
 	if req.IssueInfo.State != "open" && req.IssueInfo.State != "closed" {
-		errlog.InvalidError(logger, "issue_state", w, trace)
+		errlog.InvalidError(logger, "issues_state", w, trace)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "issue_insert", w, trace, err)
+			errlog.DeadlineExceededError(logger, "issues_insert", w, trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -133,15 +133,15 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "issue_insert_failed", pgErr, err)
+			errlog.PgConnError(logger, w, trace, "issues_insert_failed", pgErr, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "issue_insert", w, trace, err)
+		errlog.UnexpectedError(logger, "issues_insert", w, trace, err)
 		return
 	}
 
 	logger.Debug().
-		Str("code", "issue_inset").
+		Str("code", "issues_inset").
 		Msg("successfully inserted issue")
 
 	var typeName *string
@@ -207,7 +207,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "issue_info_insert", w, trace, err)
+			errlog.DeadlineExceededError(logger, "issues_info_insert", w, trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -215,17 +215,17 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "issue_info_insert_failed", pgErr, err)
+			errlog.PgConnError(logger, w, trace, "issues_info_insert_failed", pgErr, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "issue_info_insert", w, trace, err)
+		errlog.UnexpectedError(logger, "issues_info_insert", w, trace, err)
 		return
 	}
 
 	if rows == 0 {
 		logger.Info().
 			Int("status", http.StatusOK).
-			Str("code", "issue_already_exists").
+			Str("code", "issues_already_exists").
 			Msg("issue already exists")
 		lib.Pretty(w, http.StatusOK, map[string]string{
 			"status":  "OK",
@@ -235,7 +235,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	}
 
 	logger.Debug().
-		Str("code", "issue_info_inset").
+		Str("code", "issues_info_inset").
 		Int64("issue_id", req.IssueInfo.ID).
 		Int64("issue_connected_to_repo_id", req.RepoInfo.ID).
 		Str("issue_title", req.IssueInfo.Title).
@@ -250,7 +250,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 		})
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issue_label_insert", w, trace, err)
+				errlog.DeadlineExceededError(logger, "issues_label_insert", w, trace, err)
 				return
 			}
 			if errors.Is(err, pgconn.ErrConnClosed) {
@@ -258,15 +258,15 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 				return
 			}
 			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issue_label_insert_failed", pgErr, err)
+				errlog.PgConnError(logger, w, trace, "issues_label_insert_failed", pgErr, err)
 				return
 			}
-			errlog.UnexpectedError(logger, "issue_label_insert", w, trace, err)
+			errlog.UnexpectedError(logger, "issues_label_insert", w, trace, err)
 			return
 		}
 	}
 	logger.Debug().
-		Str("code", "issue_label_inset").
+		Str("code", "issues_label_inset").
 		Msg("successfully added all the labels")
 
 	for _, issueFieldValue := range req.IssueInfo.IssueFieldValues {
@@ -289,7 +289,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 		})
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issue_field_value_insert", w, trace, err)
+				errlog.DeadlineExceededError(logger, "issues_field_value_insert", w, trace, err)
 				return
 			}
 			if errors.Is(err, pgconn.ErrConnClosed) {
@@ -297,15 +297,15 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 				return
 			}
 			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issue_field_value_insert_failed", pgErr, err)
+				errlog.PgConnError(logger, w, trace, "issues_field_value_insert_failed", pgErr, err)
 				return
 			}
-			errlog.UnexpectedError(logger, "issue_field_value_insert", w, trace, err)
+			errlog.UnexpectedError(logger, "issues_field_value_insert", w, trace, err)
 			return
 		}
 
 		logger.Debug().
-			Str("code", "issue_field_value_inset").
+			Str("code", "issues_field_value_inset").
 			Str("field_value_id", fieldID.String()).
 			Str("field_value_name", issueFieldValue.IssueFieldName).
 			Msg("successfully inserted issue field value")
@@ -319,7 +319,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 				})
 				if err != nil {
 					if errors.Is(err, context.DeadlineExceeded) {
-						errlog.DeadlineExceededError(logger, "issue_multi_select_option_insert", w, trace, err)
+						errlog.DeadlineExceededError(logger, "issues_multi_select_option_insert", w, trace, err)
 						return
 					}
 					if errors.Is(err, pgconn.ErrConnClosed) {
@@ -327,15 +327,15 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 						return
 					}
 					if errors.As(err, &pgErr) {
-						errlog.PgConnError(logger, w, trace, "issue_multi_select_option_failed", pgErr, err)
+						errlog.PgConnError(logger, w, trace, "issues_multi_select_option_failed", pgErr, err)
 						return
 					}
-					errlog.UnexpectedError(logger, "issue_multi_select_option_insert", w, trace, err)
+					errlog.UnexpectedError(logger, "issues_multi_select_option_insert", w, trace, err)
 					return
 				}
 
 				logger.Debug().
-					Str("code", "issue_multi_select_option_inset").
+					Str("code", "issues_multi_select_option_inset").
 					Int64("multi_select_option_id", multiSelectOption.MultiSelectOptionID).
 					Str("multi_select_option_name", multiSelectOption.Name).
 					Msg("successfully inserted the issue multi secelt option")
