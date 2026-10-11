@@ -209,14 +209,14 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "registration_token_insertion", w, trace, err)
+			errlog.DeadlineExceededError(logger, "registration_token_insert", w, trace, err)
 			return
 		}
 		if redis.IsAuthError(err) {
 			errlog.RedisAuthenticationError(logger, w, trace, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "registration_token_insertion", w, trace, err)
+		errlog.UnexpectedError(logger, "registration_token_insert", w, trace, err)
 		return
 	}
 	// Using "FNX" (Field Not Exists) ensures fields are only inserted if they do not already exist. A return value of 0 means the operation skipped because the registration record already exists. Otherwise, it returns the total number of newly created hash fields.

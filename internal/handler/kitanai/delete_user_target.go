@@ -240,7 +240,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 			logger.Info().
 				Int("status", http.StatusOK).
-				Str("code", "inserted_pending_deletion").
+				Str("code", "pending_deletion_inset").
 				Msg("successfully registered request")
 			lib.Pretty(w, http.StatusOK, map[string]string{
 				"status": "succeeded",

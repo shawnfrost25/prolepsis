@@ -74,7 +74,7 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 			logger.Warn().
 				Err(err).
 				Int("status", http.StatusNotFound).
-				Str("cause", "missing_webhook_id").
+				Str("cause", "missing_webhook_id ").
 				Int64("repo_id", req.Repository.ID).
 				Str("full_name", req.Repository.FullName).
 				Msg("missing webhook id inside redis")
