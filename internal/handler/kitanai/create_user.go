@@ -39,12 +39,12 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "create_user").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "trace", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.DecodeError(logger, w, trace, err)
+		errlog.ParsingError(logger, "create_payload", w, trace, err)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "user_existence_check_failed", pgErr)
+			errlog.PgConnError(logger, w, trace, "user_existence_check_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_existence_check", w, trace, err)
@@ -103,14 +103,14 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	device := lib.ExtractDevice(r)
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.GenerateError(logger, "token_creation", w, trace, err)
+		errlog.GenerateError(logger, "token", w, trace, err)
 		return
 	}
 
 	if userExists {
 		// doesn_exist = true (if the rate limit get inserted); else it will be false, meaning the rate limit is already in between the entries
 		doesnt_exists, err := h.RedisClient.SetNX(timeout, "pending:registration:email:"+*req.Email, 1, 24*time.Hour).Result()
-		// If an error happened wile trying to insert the rate limited email
+		// If an error happened while trying to insert the rate limited email
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				errlog.DeadlineExceededError(logger, "email_rate_limit", w, trace, err)
@@ -146,7 +146,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 			err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 			if err != nil {
-				errlog.UnexpectedError(logger, "send_email", w, trace, err)
+				errlog.UnexpectedError(logger, "email_send", w, trace, err)
 				return
 			}
 			logger.Info().
@@ -191,7 +191,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 	if err != nil {
-		errlog.UnexpectedError(logger, "send_email", w, trace, err)
+		errlog.UnexpectedError(logger, "email_send", w, trace, err)
 		return
 	}
 

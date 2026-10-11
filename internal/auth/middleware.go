@@ -337,37 +337,37 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "fetch_context").Logger()
 	trace, ok := GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "trace", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return RequestContext{}, false
 	}
 
 	id, ok := GetID(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "id", w, trace)
+		errlog.InternalEmptyValueError(logger, "id_context", w, trace)
 		return RequestContext{}, false
 	}
 
 	role, ok := GetRole(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "role", w, trace)
+		errlog.InternalEmptyValueError(logger, "role_context", w, trace)
 		return RequestContext{}, false
 	}
 
 	ip, ok := GetIP(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "ip", w, trace)
+		errlog.InternalEmptyValueError(logger, "ip_context", w, trace)
 		return RequestContext{}, false
 	}
 
 	path, ok := GetPath(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "path", w, trace)
+		errlog.InternalEmptyValueError(logger, "path_context", w, trace)
 		return RequestContext{}, false
 	}
 
 	method, ok := GetMethod(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "method", w, trace)
+		errlog.InternalEmptyValueError(logger, "method_context", w, trace)
 		return RequestContext{}, false
 	}
 

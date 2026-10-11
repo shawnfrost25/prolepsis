@@ -32,13 +32,13 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "login_user").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "trace", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.DecodeError(logger, w, trace, err)
+		errlog.ParsingError(logger, "login", w, trace, err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	info, err := h.Queries.EmailForInfo(timeout, req.Email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NoRowsError(logger, "user_lookup_by_email", w, trace)
+			errlog.NotFoundError(logger, "user_lookup_by_email", w, trace, err)
 			return
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -74,7 +74,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "user_lookup_by_email_failed", pgErr)
+			errlog.PgConnError(logger, w, trace, "user_lookup_by_email_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_lookup_by_email", w, trace, err)
@@ -98,7 +98,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.GenerateError(logger, "token_create", w, trace, err)
+		errlog.GenerateError(logger, "token", w, trace, err)
 		return
 	}
 

@@ -30,7 +30,7 @@ func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 	var req UpdateRequest
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.DecodeError(logger, w, u.Trace, err)
+		errlog.ParsingError(logger, "update", w, u.Trace, err)
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_update_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_update_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_update", w, u.Trace, err)

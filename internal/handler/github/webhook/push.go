@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"strconv"
 	"time"
@@ -21,18 +22,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "missing_tracing_context").
-			Msg("handler invoked without trace ID in context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal server error occurred",
-			Details: map[string]string{
-				"reason": "request context pipeline uninitialized",
-			},
-		})
+		errlog.EmptyContextError(logger, "trace", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)

@@ -99,7 +99,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 	var req DeleteRequestSelf
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.DecodeError(logger, w, u.Trace, err)
+		errlog.ParsingError(logger, "self_delete", w, u.Trace, err)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 	if req.Acceptance != "CONFIRM" {
 		logger.Warn().
 			Int("status", http.StatusForbidden).
-			Str("code", "missing_confirm").
+			Str("code", "confirm_missing").
 			Msg("request rejected")
 		lib.Pretty(w, http.StatusForbidden, lib.Error{
 			Code:    "FORBIDDEN",
@@ -165,7 +165,7 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)

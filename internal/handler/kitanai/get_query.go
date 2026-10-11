@@ -84,7 +84,7 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "database_query_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "database_query_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "database_query", w, u.Trace, err)
@@ -103,11 +103,7 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 				Str("code", "user_row_scan_failed").
 				Msg("user scan failed")
 
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "An internal error occurred",
-				TraceID: u.Trace,
-			})
+			errlog.Internal(w, u.Trace)
 			return
 		}
 
@@ -126,16 +122,12 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 			Str("code", "user_row_iteration_failed").
 			Msg("user iteration failed")
 
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal error occurred",
-			TraceID: u.Trace,
-		})
+		errlog.Internal(w, u.Trace)
 		return
 	}
 
 	if len(result) == 0 {
-		errlog.NoRowsError(logger, "user", w, u.Trace)
+		errlog.NotFoundError(logger, "user", w, u.Trace, err)
 		return
 	}
 

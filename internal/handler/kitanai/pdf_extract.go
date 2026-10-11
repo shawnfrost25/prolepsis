@@ -68,18 +68,18 @@ func (h *Handler) ExtractPdf(w http.ResponseWriter, r *http.Request) {
 
 	// Not a pdf - scary
 	if !bytes.HasPrefix(rawPdf, []byte("%PDF")) {
-		errlog.MalformedError(logger, "file_content", w, u.Trace)
+		errlog.InvalidError(logger, "file_content", w, u.Trace)
 		return
 	}
 
 	// Still not a pdf - scary
 	contentType := http.DetectContentType(rawPdf[:512])
 	if contentType != "application/pdf" {
-		errlog.MalformedError(logger, "file_content_type", w, u.Trace)
+		errlog.InvalidError(logger, "file_content_type", w, u.Trace)
 		return
 	}
 
-	text, err := h.PdfClient.ExtractPdf(r.Context(), header.Filename, rawPdf)
+	text, err := h.PdfClient.ExtractPdf(r.Context(), w, r, header.Filename, rawPdf)
 	if err != nil {
 		errlog.UnexpectedError(logger, "grpc_request", w, u.Trace, err)
 		return

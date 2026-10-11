@@ -26,7 +26,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "verify_registration").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "trace", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 	hashToken := auth.HashToken(token)
 
 	if len(hashToken) != 64 {
-		errlog.MalformedError(logger, "token_length", w, trace)
+		errlog.InvalidError(logger, "token_length", w, trace)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(val) == 0 {
-		errlog.RedisNilError(logger, "registration_token", w, trace, err)
+		errlog.EmptyValueError(logger, "registration_token", w, trace)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *Handler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "user_create_failed", pgErr)
+			errlog.PgConnError(logger, w, trace, "user_create_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_create", w, trace, err)

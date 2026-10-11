@@ -100,7 +100,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 	var req DeleteRequestTarget
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.DecodeError(logger, w, u.Trace, err)
+		errlog.ParsingError(logger, "taget_delete", w, u.Trace, err)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 	infoUS, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NoRowsError(logger, "user", w, u.Trace)
+			errlog.NotFoundError(logger, "user", w, u.Trace, err)
 			return
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -138,7 +138,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr)
+			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "user_lookup", w, u.Trace, err)
@@ -160,7 +160,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		err := h.Queries.DeleteUser(timeout, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				errlog.NoRowsError(logger, "user", w, u.Trace)
+				errlog.NotFoundError(logger, "user", w, u.Trace, err)
 				return
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -172,7 +172,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr)
+				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr, err)
 				return
 			}
 			errlog.UnexpectedError(logger, "user_delete", w, u.Trace, err)
@@ -226,7 +226,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if errors.As(err, &pgErr) {
-					errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr)
+					errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr, err)
 					return
 				}
 				errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)
@@ -262,7 +262,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		err = h.Queries.DeleteUser(timeout, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				errlog.NoRowsError(logger, "user", w, u.Trace)
+				errlog.NotFoundError(logger, "user", w, u.Trace, err)
 				return
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -274,7 +274,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr)
+				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr, err)
 				return
 			}
 			errlog.UnexpectedError(logger, "user_delete", w, u.Trace, err)
@@ -320,7 +320,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr)
+				errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr, err)
 				return
 			}
 			errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)

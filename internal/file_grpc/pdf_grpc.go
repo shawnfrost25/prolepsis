@@ -2,6 +2,8 @@ package filegrpc
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/pb/common"
 	"prolepsis/internal/pb/pdf"
@@ -37,10 +39,10 @@ func (p *PdfClient) Close() error {
 	return nil
 }
 
-func (p *PdfClient) ExtractPdf(ctx context.Context, pdf_title string, pdf_bytes []byte) (string, error) {
-	u, err := auth.FetchContextOutsideHandler(ctx)
-	if err != nil {
-		return "", err
+func (p *PdfClient) ExtractPdf(ctx context.Context, w http.ResponseWriter, r *http.Request, pdf_title string, pdf_bytes []byte) (string, error) {
+	u, ok := auth.FetchContextInsideHandler(w, r)
+	if !ok {
+		return "", errors.New("failed to fetch context")
 	}
 
 	timeout, cancel := context.WithTimeout(ctx, 10*time.Second)
