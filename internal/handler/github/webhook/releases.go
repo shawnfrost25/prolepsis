@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"strconv"
 	"time"
@@ -21,18 +22,7 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "releases").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "missing_tracing_context").
-			Msg("handler invoked without trace ID in context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal server error occurred",
-			Details: map[string]string{
-				"reason": "request context pipeline uninitialized",
-			},
-		})
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -41,16 +31,7 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 	var req GitHubReleases
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_to_unmarshal").
-			Msg("failed to unmarshal the given body request")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to unmarshal the given body request",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "releases_format", w, trace, err)
 		return
 	}
 
@@ -58,71 +39,28 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to fetch the webhook id from redis due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying to get the webhook if",
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
 			return
+		}
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
 		}
 		if errors.Is(err, redis.Nil) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "missing_webhook_id ").
-				Int64("repo_id", req.Repository.ID).
-				Str("full_name", req.Repository.FullName).
-				Msg("missing webhook id inside redis")
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "Failed due to missing webhook id",
-				TraceID: trace,
-			})
+			errlog.NotFoundError(logger, "hook_id", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to check for the webhook id inside redis")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed due to unrecognized error while trying to check for the webhook existence inside redis",
-			TraceID: trace,
-		})
+		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
 		return
 	}
 
 	if hookIDStr == "" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "empty_webhook_id").
-			Msg("failed due to empty webhook id")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Empty webhook id, cannot continue",
-			TraceID: trace,
-		})
+		errlog.EmptyValueError(logger, "hook_id", w, trace)
 		return
 	}
 
 	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusBadRequest).
-			Str("cause", "failed_hook_id_parsing").
-			Msg("failed to parse the webhook id from string to int64")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Failed webhook id parsing",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "hook_id", w, trace, err)
 		return
 	}
 
@@ -130,6 +68,8 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 	if req.Release.PublishedAt != nil {
 		publishedAt = pgtype.Timestamptz{Time: *req.Release.PublishedAt, Valid: true}
 	}
+
+	var pgErr *pgconn.PgError
 
 	err = h.Queries.InsertGitHubReleases(timeout, db.InsertGitHubReleasesParams{
 		GithubRepoID:    req.Repository.ID,
@@ -149,35 +89,25 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 		SenderType:      req.Sender.Type,
 	})
 	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to insert the given release due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying insert the given release inside the database",
-				TraceID: trace,
-			})
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "releases_insert", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("failed to insert the given release due to an unrecognized error")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to insert the given release due to an unrecognized error",
-			TraceID: trace,
-		})
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+			return
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "releases_insert_failed", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "releases_insert", w, trace, err)
 		return
 	}
 
 	logger.Info().
 		Str("cause", "success").
-		Msg("successfully inserted the given release inside the database")
+		Msg("successfully inserted releases")
 
 	lib.Pretty(w, http.StatusOK, nil)
 }

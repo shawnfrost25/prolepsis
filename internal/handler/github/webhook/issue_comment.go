@@ -22,7 +22,7 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "issue_comment").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyValueError(logger, "trace_context", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -137,7 +137,7 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 
 	logger.Info().
 		Str("code", "success").
-		Msg("successfully inserted the given webhook issue comment inside the database")
+		Msg("successfully inserted issue comment")
 
 	lib.Pretty(w, http.StatusOK, nil)
 }

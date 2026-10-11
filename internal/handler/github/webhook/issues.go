@@ -23,7 +23,7 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "issues").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyValueError(logger, "trace_context", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
