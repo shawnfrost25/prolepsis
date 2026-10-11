@@ -22,7 +22,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.EmptyContextError(logger, "trace", w, trace)
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -31,16 +31,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	var req GitHubPush
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "could_not_decode").
-			Msg("failed to decode the given request payload")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to decode the given request payload",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "push_format", w, trace, err)
 		return
 	}
 
@@ -64,73 +55,32 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to fetch the webhook id from redis due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying to get the webhook if",
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
 			return
+		}
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
 		}
 		if errors.Is(err, redis.Nil) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "missing_webhook_id").
-				Int64("repo_id", req.RepoInfo.ID).
-				Str("full_name", req.RepoInfo.FullName).
-				Msg("missing webhook id inside redis")
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "Failed due to missing webhook id",
-				TraceID: trace,
-			})
+			errlog.NotFoundError(logger, "hook_id", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to check for the webhook id inside redis")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed due to unrecognized error while trying to check for the webhook existence inside redis",
-			TraceID: trace,
-		})
+		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
 		return
 	}
 
 	if hookIDStr == "" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "empty_webhook_id").
-			Msg("failed due to empty webhook id")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Empty webhook id, cannot continue",
-			TraceID: trace,
-		})
+		errlog.EmptyValueError(logger, "hook_id", w, trace)
 		return
 	}
 
 	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusBadRequest).
-			Str("cause", "failed_hook_id_parsing").
-			Msg("failed to parse the webhook id from string to int64")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Failed webhook id parsing",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "hook_id", w, trace, err)
 		return
 	}
+
+	var pgErr *pgconn.PgError
 
 	pushID, err := h.Queries.InsertGitHubPushInfo(timeout, db.InsertGitHubPushInfoParams{
 		GithubRepoID: req.RepoInfo.ID,
@@ -147,29 +97,16 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		Deleted:      req.Deleted,
 	})
 	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("timeout while trying to insert the github webhook push information")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Failed to insert the webhook push information",
-				TraceID: trace,
-			})
-			return
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "push_info_insert", w, trace, err)
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to insert the github webhook push information")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to insert the github webhook push information",
-			TraceID: trace,
-		})
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "push_info_insert_failed", pgErr, err)
+		}
+		errlog.UnexpectedError(logger, "push_info_insert", w, trace, err)
 		return
 	}
 
@@ -185,34 +122,17 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 			CommittedAt: pgtype.Timestamptz{Time: commit.CommittedAt, Valid: true},
 		})
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				errlog.DeadlineExceededError(logger, "push_commit_insert", w, trace, err)
+			}
 			if errors.Is(err, pgconn.ErrConnClosed) {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusRequestTimeout).
-					Str("cause", "timeout").
-					Str("commit_sha", commit.CommitSha).
-					Str("push_id", pushID.String()).
-					Str("full_name", req.RepoInfo.FullName).
-					Msg("Failed to insert the commit info, due to timeout")
-				lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-					Code:    "REQUEST_TIMEOUT",
-					Message: "Timedout while trying to insert the commit info inside the database",
-					TraceID: trace,
-				})
+				errlog.ErrConnClosed(logger, w, trace, err)
 				return
 			}
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusInternalServerError).
-				Str("cause", "unrecognized").
-				Str("commit_sha", commit.CommitSha).
-				Str("push_id", pushID.String()).
-				Msg("hit an urecognized error while trying to insert the github webhook info inside the database")
-			lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Unrecognized error while trying to insert the github webhook info inside the database",
-				TraceID: trace,
-			})
+			if errors.As(err, &pgErr) {
+				errlog.PgConnError(logger, w, trace, "push_commit_insert_failed", pgErr, err)
+			}
+			errlog.UnexpectedError(logger, "push_commit_insert", w, trace, err)
 			return
 		}
 
