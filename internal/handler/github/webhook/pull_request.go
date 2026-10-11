@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
 	"strconv"
 	"time"
@@ -21,18 +22,7 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "pull_request").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		logger.Error().
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "missing_tracing_context").
-			Msg("handler invoked without trace ID in context")
-
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "An internal server error occurred",
-			Details: map[string]string{
-				"reason": "request context pipeline uninitialized",
-			},
-		})
+		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -41,16 +31,7 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	var req GitHubPullRequest
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "failed_to_unmarshal").
-			Msg("failed to unmarshal the given body")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unrevognized error while trying to unmarshal the given body",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "pull_request_format", w, trace, err)
 		return
 	}
 
@@ -58,70 +39,27 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to fetch the webhook id from redis due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying to get the webhook if",
-				TraceID: trace,
-			})
+			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
 			return
+		}
+		if redis.IsAuthError(err) {
+			errlog.RedisAuthenticationError(logger, w, trace, err)
 		}
 		if errors.Is(err, redis.Nil) {
-			logger.Warn().
-				Err(err).
-				Int("status", http.StatusNotFound).
-				Str("cause", "missing_webhook_id").
-				Int64("repo_id", req.RepoInfo.ID).
-				Str("full_name", req.RepoInfo.FullName).
-				Msg("missing webhook id inside redis")
-			lib.Pretty(w, http.StatusNotFound, lib.Error{
-				Code:    "NOT_FOUND",
-				Message: "Failed due to missing webhook id",
-				TraceID: trace,
-			})
+			errlog.NotFoundError(logger, "hook_id", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to check for the webhook id inside redis")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed due to unrecognized error while trying to check for the webhook existence inside redis",
-			TraceID: trace,
-		})
+		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
 		return
 	}
 
 	if hookIDStr == "" {
-		logger.Warn().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "empty_webhook_id").
-			Msg("failed due to empty webhook id")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Empty webhook id, cannot continue",
-			TraceID: trace,
-		})
+		errlog.EmptyValueError(logger, "hook_id", w, trace)
 		return
 	}
 
 	if req.PRInfo.State != "open" && req.PRInfo.State != "closed" {
-		logger.Error().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "invalid_issue_state").
-			Str("given_state", req.PRInfo.State).
-			Msg("the given payload's state is not 'closed' or 'open'")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Invalid payload, state is malformed",
-			TraceID: trace,
-		})
+		errlog.InvalidError(logger, "issue_state", w, trace)
 		return
 	}
 
@@ -143,18 +81,11 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	if req.PRInfo.State != "closed" && req.PRInfo.State != "open" {
-		logger.Error().
-			Int("status", http.StatusBadRequest).
-			Str("cause", "invalid_pull_request_state").
-			Str("given_state", req.PRInfo.State).
-			Msg("the given payload's state is not 'closed' or 'open'")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Invalid payload, state is malformed",
-			TraceID: trace,
-		})
+		errlog.InvalidError(logger, "pull_request_state", w, trace)
 		return
 	}
+
+	var pgErr *pgconn.PgError
 
 	err = h.Queries.InsertGitHubPullRequestInfo(timeout, db.InsertGitHubPullRequestInfoParams{
 		ID:         req.PRInfo.ID,
@@ -168,44 +99,25 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 		AuthorType: authType,
 	})
 	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to insert the info about the pull request inside the database due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying to insert the pull request info inside the database",
-				TraceID: trace,
-			})
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "pull_request_info_insert", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("unrecognized error while trying to insert the pull request info inside the database")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Failed to insert the pull request info due to unrecognized error",
-			TraceID: trace,
-		})
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+			return
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "pull_request_info_insert_failed", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "pull_request_info_insert", w, trace, err)
 		return
 	}
 
 	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusBadRequest).
-			Str("cause", "failed_hook_id_parsing").
-			Msg("failed to parse the webhook id from string to int64")
-		lib.Pretty(w, http.StatusBadRequest, lib.Error{
-			Code:    "BAD_REQUEST",
-			Message: "Failed webhook id parsing",
-			TraceID: trace,
-		})
+		errlog.ParsingError(logger, "hook_id", w, trace, err)
 		return
 	}
 
@@ -250,29 +162,19 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 		MilestoneID:          req.Workflow.MilestoneID,
 	})
 	if err != nil {
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			logger.Error().
-				Err(err).
-				Int("status", http.StatusRequestTimeout).
-				Str("cause", "timeout").
-				Msg("failed to insert the whole pull request inside the database due to timeout")
-			lib.Pretty(w, http.StatusRequestTimeout, lib.Error{
-				Code:    "REQUEST_TIMEOUT",
-				Message: "Timedout while trying to insert the whole pull request inside the database",
-				TraceID: trace,
-			})
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "pull_request_insert", w, trace, err)
 			return
 		}
-		logger.Error().
-			Err(err).
-			Int("status", http.StatusInternalServerError).
-			Str("cause", "unrecognized").
-			Msg("failed to insert the whole pull request inside the database due to an unrecognized error")
-		lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-			Code:    "INTERNAL_SERVER_ERROR",
-			Message: "Unrecognized error while trying to insert the whole pull request",
-			TraceID: trace,
-		})
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+			return
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "pull_request_insert", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "pull_request_insert", w, trace, err)
 		return
 	}
 
