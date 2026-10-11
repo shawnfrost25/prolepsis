@@ -59,7 +59,7 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	}
 
 	if req.PRInfo.State != "open" && req.PRInfo.State != "closed" {
-		errlog.InvalidError(logger, "issue_state", w, trace)
+		errlog.InvalidError(logger, "pull_request_state", w, trace)
 		return
 	}
 
@@ -78,11 +78,6 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	var authType *string
 	if auth != nil {
 		authType = &auth.Type
-	}
-
-	if req.PRInfo.State != "closed" && req.PRInfo.State != "open" {
-		errlog.InvalidError(logger, "pull_request_state", w, trace)
-		return
 	}
 
 	var pgErr *pgconn.PgError
@@ -180,7 +175,7 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 
 	logger.Info().
 		Int("status", http.StatusOK).
-		Msg("successfully managed to insert the webhook push info and the commits too")
+		Msg("successfully inserted commits and pr")
 	lib.Pretty(w, http.StatusOK, map[string]string{
 		"status": "ok",
 	})
