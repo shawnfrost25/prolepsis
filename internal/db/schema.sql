@@ -49,55 +49,93 @@ CREATE TABLE pending_deletions (
 
 -- We create this table just to hold the info about the repo's license, nothing else.
 CREATE TABLE github_repo_license(
-    license_key TEXT NOT NULL,
-    CONSTRAINT github_license_license_key_pkey PRIMARY KEY (license_key),
-    name TEXT NOT NULL,
-    spdx_id TEXT NOT NULL,
-    url TEXT,
-    node_id TEXT NOT NULL
+     ---------- IDs ----------
+     spdx_id TEXT,
+     node_id TEXT NOT NULL,
+
+     ---------- GENERAL INFO TEXT ----------
+     license_key TEXT NOT NULL,
+     CONSTRAINT github_license_license_key_pkey PRIMARY KEY (license_key),
+     name TEXT NOT NULL,
+     body TEXT NOT NULL,
+
+     ---------- GENERAL INFO NUM ----------
+
+     ---------- GENERAL INFO BOOL ----------
+
+     ---------- URLs ----------
+     html_url TEXT
+
+     ---------- GENERAL INFO TIME ----------
 );
 
 -- A simple table containing the GitHub information about the user
 CREATE TABLE github_user(
+    ---------- IDs ----------
     user_id UUID NOT NULL,
     CONSTRAINT github_user_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     github_id BIGINT NOT NULL,
     CONSTRAINT github_user_github_id_pkey PRIMARY KEY (github_id),
-    name TEXT NOT NULL,
-    CONSTRAINT github_user_github_name_key UNIQUE (name),
-    avatar_url TEXT NOT NULL,
-    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TEXT ----------
+    login TEXT NOT NULL,
+    CONSTRAINT github_user_github_name_key UNIQUE (login),
     company TEXT,
     email TEXT,
-    hireable BOOLEAN,
     bio TEXT,
-    followers INT DEFAULT 0,
-    total_public_repos SMALLINT NOT NULL,
-    total_private_repos SMALLINT NOT NULL,
+    status_message TEXT,
+
+    ---------- GENERAL INFO NUM ----------
+    followers INT NOT NULL DEFAULT 0,
     total_repos SMALLINT NOT NULL,
+
+    ---------- GENERAL INFO BOOL ----------
+    hireable BOOLEAN NOT NULL,
+
+    ---------- URLs ----------
+    avatar_url TEXT NOT NULL,
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ----------
     created_at TIMESTAMPTZ NOT NULL
 );
 
 -- A simple table to hold the repositories of the user
 CREATE TABLE github_repo(
+    ---------- IDs ----------
     github_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_github_user_id_fkey FOREIGN KEY (github_id) REFERENCES github_user(github_id),
+    CONSTRAINT github_repo_github_id_fkey FOREIGN KEY (github_id) REFERENCES github_user(github_id),
     repo_id BIGINT NOT NULL,
     CONSTRAINT github_repo_repo_id_pkey PRIMARY KEY (repo_id),
+    hook_id BIGINT,
+    CONSTRAINT github_repo_hook_id_key UNIQUE (hook_id),
+
+    ---------- GENERAL INFO TEXT ----------
     name TEXT NOT NULL,
-    html_url TEXT NOT NULL,
     description TEXT,
-    created_at TIMESTAMPTZ NOT NULL,
-    pushed_at TIMESTAMPTZ NOT NULL,
-    stars INT DEFAULT 0,
-    watches INT DEFAULT 0,
-    forks_count INT DEFAULT 0,
+    readme TEXT,
     main_language TEXT,
+    secondary_languages TEXT[],
     license_key TEXT,
     CONSTRAINT github_repo_license_key_fkey FOREIGN KEY (license_key) REFERENCES github_repo_license(license_key) ON DELETE SET NULL,
-    topic TEXT[] NOT NULL DEFAULT '{}',
+    topic TEXT[] DEFAULT '{}',
+    visibility TEXT NOT NULL,
+
+    ---------- GENERAL INFO NUM ----------
+    stars INT NOT NULL DEFAULT 0,
+    watches INT NOT NULL DEFAULT 0,
+    forks_count INT NOT NULL DEFAULT 0,
+    total_releases INT NOT NULL,
+    
+    ---------- GENERAL INFO BOOL ----------
     archived BOOLEAN NOT NULL,
-    visibility TEXT NOT NULL
+    
+    ---------- URLs ----------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ----------
+    created_at TIMESTAMPTZ NOT NULL,
+    pushed_at TIMESTAMPTZ
 );
 
 CREATE TABLE github_repo_webhook_deliveries(
@@ -105,7 +143,176 @@ CREATE TABLE github_repo_webhook_deliveries(
     CONSTRAINT github_repo_webhook_deliveries_delivery_id_pkey PRIMARY KEY (delivery_id)
 );
 
-CREATE TABLE github_repo_push(
+CREATE TABLE pull_requests(
+    ---------- IDs ----------
+    id BIGINT NOT NULL,
+    CONSTRAINT pull_requests_id_pkey PRIMARY KEY (id),
+    github_repo_id BIGINT NOT NULL,
+    CONSTRAINT pull_requests_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id),
+    github_user_id BIGINT NOT NULL,
+    CONSTRAINT pull_requests_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id),
+
+    ---------- GENERAL INFO TEXT ----------
+    action TEXT,
+    author_login TEXT,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    state TEXT NOT NULL,
+    labels TEXT[],
+
+   ---------- GENERAL INFO NUM ----------
+   additions INT NOT NULL,
+   changed_files INT NOT NULL,
+   deletions INT NOT NULL,
+   number INT NOT NULL,
+   participants_number INT NOT NULL,
+   positive_reactions INT NOT NULL,
+   negative_reactions INT NOT NULL,
+   total_reactions INT NOT NULL,
+
+   ---------- GENERAL INFO BOOL ----------
+   is_closed BOOLEAN NOT NULL,
+   is_draft BOOLEAN NOT NULL,
+   is_locked BOOLEAN NOT NULL,
+   is_merged BOOLEAN NOT NULL,
+
+   ---------- URLs ----------
+   html_url TEXT NOT NULL,
+
+   ---------- GENERAL INFO TIME ----------
+   created_at TIMESTAMPTZ NOT NULL,
+   updated_at TIMESTAMPTZ NOT NULL,
+   closed_at TIMESTAMPTZ,
+   merged_at TIMESTAMPTZ
+);
+
+CREATE TABLE pull_request_comments(
+    ---------- IDs ----------
+    id BIGINT NOT NULL,
+    CONSTRAINT pull_request_comments_id_pkey PRIMARY KEY (id),
+    pr_id BIGINT NOT NULL,
+    CONSTRAINT pull_request_comments_pr_id_fkey FOREIGN KEY (pr_id) REFERENCES pull_requests(id) ON DELETE CASCADE,
+
+    ---------- GENERAL INFO TEXT ----------
+    action TEXT,
+    author_login TEXT,
+    body TEXT NOT NULL,
+    minimized_reason TEXT,
+
+    ---------- GENERAL INFO NUM ----------
+
+    ---------- GENERAL INFO BOOL ----------
+    is_minimized BOOLEAN NOT NULL,
+
+    ---------- URLs ----------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ----------
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    last_edited_at TIMESTAMPTZ
+);
+
+CREATE TABLE issue_requests(
+    ---------- IDs ----------
+    id BIGINT NOT NULL,
+    CONSTRAINT issue_requests_id_pkey PRIMARY KEY (id),
+    github_repo_id BIGINT NOT NULL,
+    CONSTRAINT issue_requests_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id),
+    github_user_id BIGINT NOT NULL,
+    CONSTRAINT issue_requests_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id),
+    
+    ---------- GENERAL INFO TEXT ----------
+    action TEXT,
+    author_login TEXT,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    state TEXT NOT NULL,
+    state_reason TEXT,
+    issue_type TEXT,
+    labels TEXT[],
+
+    ---------- GENERAL INFO NUM ----------
+    number INT NOT NULL,
+    participants_number INT NOT NULL,
+    positive_reactions INT NOT NULL,
+    negative_reactions INT NOT NULL,
+    total_reactions INT NOT NULL,
+
+    ---------- GENERAL INFO BOOL ----------
+    is_closed BOOLEAN,
+    is_locked BOOLEAN,
+
+    ---------- URLs ----------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ----------
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    closed_at TIMESTAMPTZ,
+    last_edited_at TIMESTAMPTZ
+);
+
+CREATE TABLE issue_comments(
+    ---------- IDs ----------
+    id BIGINT NOT NULL,
+    CONSTRAINT issue_comments_id_pkey PRIMARY KEY (id),
+    issue_id BIGINT NOT NULL,
+    CONSTRAINT issue_comments_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES issue_requests(id) ON DELETE CASCADE,
+
+    ---------- GENERAL INFO TEXT ----------
+    action TEXT,
+    author_login TEXT,
+    body TEXT NOT NULL,
+    minimized_reason TEXT,
+
+    ---------- GENERAL INFO NUM ----------
+
+    ---------- GENERAL INFO BOOL ----------
+    is_minimized BOOLEAN NOT NULL,
+
+    ---------- URLs ----------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ----------
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    last_edited_at TIMESTAMPTZ
+);
+
+CREATE TABLE release_requests(
+    ---------- IDs ----------
+    id BIGINT NOT NULL,
+    CONSTRAINT release_requests_id_pkey PRIMARY KEY (id),
+    github_repo_id BIGINT NOT NULL,
+    CONSTRAINT release_requests_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE,
+    github_user_id BIGINT NOT NULL,
+    CONSTRAINT release_requests_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id) ON DELETE CASCADE,
+
+    ---------- GENERAL INFO TEXT ---------
+    action TEXT,
+    author_login TEXT,
+    name TEXT,
+    tag_name TEXT,
+    description TEXT,
+
+    ---------- GENERAL INFO NUM ---------
+
+    ---------- GENERAL INFO BOOL ---------
+    is_draft BOOLEAN NOT NULL,
+    is_prereleased BOOLEAN NOT NULL,
+    is_immutable BOOLEAN NOT NULL,
+
+    ---------- URLs ---------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ---------
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    published_at TIMESTAMPTZ
+);
+
+CREATE TABLE push_webhook(
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     CONSTRAINT github_repo_push_id PRIMARY KEY (id),
     github_repo_id BIGINT NOT NULL,
@@ -136,176 +343,4 @@ CREATE TABLE github_repo_push_commit(
     modified TEXT[] DEFAULT '{}',
     url TEXT NOT NULL,
     committed_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE TABLE github_repo_pull_request_info(
-    id BIGINT NOT NULL,
-    CONSTRAINT github_repo_pull_request_info_id_pkey PRIMARY KEY (id),
-    number INT NOT NULL,
-    title TEXT NOT NULL,
-    state TEXT NOT NULL,
-    is_draft BOOLEAN NOT NULL,
-    is_merged BOOLEAN,
-    author_id BIGINT,
-    author_name TEXT,
-    author_type TEXT
-);
-
-CREATE TABLE github_repo_pull_request(
-    github_repo_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_pull_request_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id),
-    github_user_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_pull_request_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id),
-    hook_id BIGINT NOT NULL,
-    event_action TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    sender_id BIGINT NOT NULL,
-    sender_name TEXT NOT NULL,
-    sender_type TEXT NOT NULL,
-    pull_request_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_pull_request_pull_request_id_fkey FOREIGN KEY (pull_request_id) REFERENCES github_repo_pull_request_info(id),
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    closed_at TIMESTAMPTZ,
-    merged_at TIMESTAMPTZ,
-    additions INT NOT NULL,
-    deletions INT NOT NULL,
-    changed_files INT NOT NULL,
-    commits_count INT NOT NULL,
-    comments_count INT NOT NULL,
-    review_comments_count INT NOT NULL,
-    head_branch TEXT NOT NULL,
-    head_sha TEXT NOT NULL,
-    base_branch TEXT NOT NULL,
-    merge_commit_sha TEXT,
-    assignee_ids BIGINT[] DEFAULT '{}',
-    requested_reviewer_ids BIGINT[] DEFAULT '{}',
-    requested_team_ids BIGINT[] DEFAULT '{}',
-    labels TEXT[] DEFAULT '{}',
-    milestone_id BIGINT
-);
-
-CREATE TABLE github_repo_issues(
-    id UUID NOT NULL,
-    CONSTRAINT github_repo_issues_id_pkey PRIMARY KEY (id),
-    github_repo_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id),
-    github_user_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id),
-    hook_id BIGINT NOT NULL,
-    event_action TEXT NOT NULL,
-    assignee_id BIGINT,
-    assignee_name TEXT,
-    assignee_type TEXT,
-    sender_id BIGINT NOT NULL,
-    sender_name TEXT NOT NULL,
-    sender_type TEXT NOT NULL
-);
-
-CREATE TABLE github_repo_issues_info(
-    related_id UUID NOT NULL,
-    CONSTRAINT github_repo_issues_info_related_id_fkey FOREIGN KEY (related_id) REFERENCES github_repo_issues(id) ON DELETE CASCADE,
-    CONSTRAINT github_repo_issues_info_related_id_key UNIQUE (related_id),
-    issue_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_info_pkey PRIMARY KEY (issue_id),
-    author_association TEXT NOT NULL,
-    body TEXT,
-    comments INT NOT NULL,
-    draft BOOLEAN NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    deleted_at TIMESTAMPTZ,
-    locked BOOLEAN NOT NULL,
-    milestone_description TEXT,
-    milestone_due_on TEXT,
-    milestone_state TEXT,
-    milestone_title TEXT,
-    number INT NOT NULL,
-    positive_reactions INT NOT NULL,
-    negative_reactions INT NOT NULL,
-    reactions_total_count INT NOT NULL,
-    state TEXT NOT NULL,
-    state_reason TEXT,
-    sub_issue_total INT NOT NULL,
-    sub_issue_completed INT NOT NULL,
-    sub_issue_percent_completed INT NOT NULL,
-    issue_dependency_total_blocked_by INT NOT NULL,
-    issue_dependency_total_blocking INT NOT NULL,
-    title TEXT NOT NULL,
-    type_name TEXT,
-    type_description TEXT,
-    updated_at TIMESTAMPTZ NOT NULL,
-    issue_created_by BIGINT,
-    creator_name TEXT,
-    creator_type TEXT,
-    assignee_id BIGINT,
-    assignee_name TEXT,
-    assignee_type TEXT
-);
-
-CREATE TABLE github_repo_issues_labels(
-    issue_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_label_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES github_repo_issues_info(issue_id) ON DELETE CASCADE,
-    label_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_labels_label_issue_key UNIQUE (issue_id, label_id),
-    name TEXT NOT NULL,
-    description TEXT
-);
-
-CREATE TABLE github_repo_issues_field_values(
-    id UUID NOT NULL,
-    CONSTRAINT github_repo_issues_field_values_id_pkey PRIMARY KEY (id),
-    issue_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_field_values_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES github_repo_issues_info(issue_id) ON DELETE CASCADE,
-    issue_field_name TEXT NOT NULL,
-    data_type TEXT NOT NULL,
-    value JSONB,
-    single_select_option_id BIGINT,
-    single_select_option_name TEXT
-);
-
-CREATE TABLE github_repo_issues_multi_select_options(
-    field_value_id UUID NOT NULL,
-    CONSTRAINT github_repo_issues_multi_select_options_field_value_id_fkey FOREIGN KEY (field_value_id) REFERENCES github_repo_issues_field_values(id) ON DELETE CASCADE,
-    id BIGINT NOT NULL,
-    CONSTRAINT mgithub_repo_issues_multi_select_options_id_pkey PRIMARY KEY (id),
-    name TEXT NOT NULL
-);
-
-CREATE TABLE github_repo_issues_comments(
-    issue_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_issues_comments_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES github_repo_issues_info(issue_id) ON DELETE CASCADE,
-    action TEXT NOT NULL,
-    change_from TEXT,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    author_association TEXT NOT NULL,
-    comment_id BIGINT NOT NULL,
-    commentor_id BIGINT NOT NULL,
-    commentor_name TEXT NOT NULL,
-    commentor_type TEXT NOT NULL,
-    body TEXT NOT NULL,
-    positive_reactions INT NOT NULL,
-    negative_reactions INT NOT NULL,
-    total_reactions INT NOT NULL
-);
-
-CREATE TABLE github_repo_releases(
-    github_repo_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_releases_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE,
-    github_user_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_releases_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id) ON DELETE CASCADE,
-    releases_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_releases_releases_id_pkey PRIMARY KEY (releases_id),
-    hook_id BIGINT NOT NULL,
-    action TEXT NOT NULL,
-    tag_name TEXT NOT NULL,
-    name TEXT NOT NULL,
-    body TEXT NOT NULL,
-    target_commitish TEXT NOT NULL,
-    draft BOOLEAN NOT NULL,
-    prerelease BOOLEAN NOT NULL,
-    published_at TIMESTAMPTZ,
-    sender_id BIGINT NOT NULL,
-    sender_name TEXT NOT NULL,
-    sender_type TEXT NOT NULL
 );
