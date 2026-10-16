@@ -1,9 +1,223 @@
 package webhook
 
 import (
-	"encoding/json"
 	"time"
 )
+
+// ==============================
+// ISSUE/PR COMMENTS
+// ==============================
+
+type Comments struct {
+	Nodes []struct {
+		Author *struct {
+			Login string `json:"login"`
+		} `json:"author"`
+		Body            string     `json:"body"`
+		FullDatabaseId  *string    `json:"fullDatabaseId"`
+		IsMinimized     bool       `json:"isMinimized"`
+		MinimizedReason *string    `json:"minimizedReason"`
+		CreatedAt       time.Time  `json:"createdAt"`
+		UpdatedAt       time.Time  `json:"updatedAt"`
+		LastEditedAt    *time.Time `json:"lastEditedAt"`
+		HtmlUrl         string     `json:"url"`
+	} `json:"nodes"`
+}
+
+// ==============================
+// PULL REQUEST
+// ==============================
+
+type PullRequestNode struct {
+	Additions int `json:"additions"`
+	Author    *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Body           string   `json:"body"`
+	ChangedFiles   int      `json:"changedFiles"`
+	Comments       Comments `json:"comments"`
+	FullDatabaseId *string  `json:"fullDatabaseId"`
+	Deletions      int      `json:"deletions"`
+	IsDraft        bool     `json:"isDraft"`
+	IsLocked       bool     `json:"locked"`
+	IsMerged       bool     `json:"merged"`
+	IsClosed       bool     `json:"closed"`
+	Number         int      `json:"number"`
+	ReactionGroups []struct {
+		Content  string `json:"content"`
+		Reactors struct {
+			TotalCount int `json:"totalCount"`
+		} `json:"reactors"`
+	} `json:"reactionGroups"`
+	Participants struct {
+		TotalCount int `json:"totalCount"`
+	} `json:"participants"`
+	Labels struct {
+		Nodes []struct {
+			Name string `json:"name"`
+		} `json:"nodes"`
+	} `json:"labels"`
+	State     string     `json:"state"`
+	HtmlUrl   string     `json:"url"`
+	Title     string     `json:"title"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+	ClosedAt  *time.Time `json:"closedAt"`
+	MergedAt  *time.Time `json:"mergedAt"`
+}
+
+type PullRequest struct {
+	Nodes []PullRequestNode `json:"nodes"`
+}
+
+// ==============================
+// ISSUES
+// ==============================
+type IssueNode struct {
+	Author *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Body           string     `json:"body"`
+	Comments       Comments   `json:"comments"`
+	IsClosed       bool       `json:"closed"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+	ClosedAt       *time.Time `json:"closedAt"`
+	FullDatabaseId *string    `json:"fullDatabaseId"`
+	Labels         struct {
+		Nodes []struct {
+			Name string `json:"name"`
+		} `json:"nodes"`
+	} `json:"labels"`
+	IssueType *struct {
+		Name string `json:"name"`
+	} `json:"issueType"`
+	LastEditedAt   *time.Time `json:"lastEditedAt"`
+	IsLocked       bool       `json:"locked"`
+	Number         int        `json:"number"`
+	ReactionGroups []struct {
+		Content  string `json:"content"`
+		Reactors struct {
+			TotalCount int `json:"totalCount"`
+		} `json:"reactors"`
+	} `json:"reactionGroups"`
+	Participants struct {
+		TotalCount int `json:"totalCount"`
+	} `json:"participants"`
+	State       string  `json:"state"`
+	StateReason *string `json:"stateReason"`
+	Title       string  `json:"title"`
+	HtmlUrl     string  `json:"url"`
+}
+
+type Issues struct {
+	Nodes []IssueNode `json:"nodes"`
+}
+
+// ==============================
+// RELEASES
+// ==============================
+
+type ReleaseNode struct {
+	DatabaseId *int `json:"databaseId"`
+	Author     *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Description   *string    `json:"description"`
+	IsImmutable   bool       `json:"immutable"`
+	IsPrereleased bool       `json:"isPrerelease"`
+	IsDraft       bool       `json:"isDraft"`
+	HtmlUrl       string     `json:"url"`
+	TagName       string     `json:"tagName"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
+	PublishedAt   *time.Time `json:"publishedAt"`
+}
+
+type Releases struct {
+	TotalCount int           `json:"totalCount"`
+	Nodes      []ReleaseNode `json:"nodes"`
+}
+
+// ==============================
+// REPOSITORY
+// ==============================
+
+type Repository struct {
+	TotalCount int `json:"totalCount"`
+	// Thought to write it as *[]struct - but it's useless and adds more unwanted abstarction
+	Nodes []struct {
+		Name            string    `json:"name"`
+		IsArchived      bool      `json:"isArchived"`
+		CreatedAt       time.Time `json:"createdAt"`
+		FullDatabaseId  *string   `json:"fullDatabaseId"` // A string? - crazy people outdoor nowadays
+		Description     *string   `json:"description"`
+		ForkCount       int       `json:"forkCount"`
+		HtmlUrl         string    `json:"url"`
+		PrimaryLanguage *struct {
+			Name string `json:"name"`
+		} `json:"primaryLanguage"`
+		PushedAt   *time.Time `json:"pushedAt"`
+		Stars      int        `json:"stargazerCount"`
+		Visibility string     `json:"visibility"`
+		Watchers   struct {
+			TotalCount int `json:"totalCount"`
+		} `json:"watchers"`
+		Languages *struct {
+			Nodes []struct {
+				Name string `json:"name"`
+			} `json:"nodes"`
+		} `json:"languages"`
+		RepositoryTopics struct {
+			Nodes []struct {
+				Topic struct {
+					Name string `json:"name"`
+				} `json:"topic"`
+			} `json:"nodes"`
+		} `json:"repositoryTopics"`
+		LicenseInfo *struct {
+			Name    string  `json:"name"`
+			Body    string  `json:"body"`
+			Key     string  `json:"key"`
+			SpdxId  *string `json:"spdxId"`
+			HtmlUrl *string `json:"url"`
+			NodeId  string  `json:"id"`
+		} `json:"licenseInfo"`
+		PullRequest PullRequest `json:"pullRequests"`
+		Issues      Issues      `json:"issues"`
+		Releases    Releases    `json:"releases"`
+		Object      *struct {
+			Text *string `json:"text"`
+		} `json:"object"`
+	} `json:"nodes"`
+}
+
+// ==============================
+// GRAPHQL FOR OAUTH2
+// ==============================
+
+type User struct {
+	Login     string    `json:"login"`
+	AvatarUrl string    `json:"avatarUrl"`
+	Bio       *string   `json:"bio"`
+	Company   *string   `json:"company"`
+	CreatedAt time.Time `json:"createdAt"`
+	Email     string    `json:"email"`
+	Followers struct {
+		TotalCount int `json:"totalCount"`
+	} `json:"followers"`
+	DatabaseID *int64 `json:"databaseId"`
+	Status     *struct {
+		Message *string `json:"message"`
+	} `json:"status"`
+	IsHireable bool       `json:"isHireable"`
+	HtmlUrl    string     `json:"url"`
+	Repository Repository `json:"repositories"`
+}
+
+type Data struct {
+	User User `json:"user"`
+}
 
 // ==============================
 // PUSH WEBHOOK ONLY (EVERYTHING BELOW)
@@ -22,7 +236,7 @@ type Owner struct {
 	ID int64 `json:"id"`
 }
 
-type Repository struct {
+type Repositor struct {
 	ID       int64  `json:"id"`
 	FullName string `json:"full_name"`
 	OwnerID  Owner  `json:"owner"`
@@ -43,233 +257,4 @@ type GitHubPush struct {
 	Created      bool        `json:"created"`
 	Deleted      bool        `json:"deleted"`
 	CommitInfo   []Commit    `json:"commits"`
-}
-
-// ==============================
-// PULL REQUEST WEBHOOK ONLY (EVERYTHING BELOW) -- I HATE READING DOCUMENTATION
-// ==============================
-type Sender struct {
-	ID    int64  `json:"sender"`
-	Login string `json:"login"`
-	Type  string `json:"type"`
-}
-
-type Author struct {
-	ID    int64  `json:"id"`
-	Login string `json:"string"`
-	Type  string `json:"type"`
-}
-
-type PullRequestInfo struct {
-	ID       int64   `json:"id"`
-	Number   int     `json:"number"`
-	Title    string  `json:"title"`
-	State    string  `json:"open"`
-	IsDraft  bool    `json:"is_draft"`
-	IsMerged *bool   `json:"is_merged"`
-	Auth     *Author `json:"author,omitempty"`
-}
-
-type TimeStamp struct {
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	ClosedAt  *time.Time `json:"closed_at"`
-	MergedAt  *time.Time `json:"merged_at"`
-}
-
-type Metrics struct {
-	Additions           int `json:"additions"`
-	Deletions           int `json:"deletions"`
-	ChangedFiles        int `json:"changed_files"`
-	CommitsCount        int `json:"commits_count"`
-	CommentsCount       int `json:"comments_count"`
-	ReviewCommentsCount int `json:"review_comments_count"`
-}
-
-type Git struct {
-	HeadBranch     string  `json:"head_branch"`
-	HeadSha        string  `json:"head_sha"`
-	BaseBranch     string  `json:"base_branch"`
-	MergeCommitSha *string `json:"merge_commit_sha"`
-}
-
-type Workflow struct {
-	AssigneeIDs          []int64  `json:"assignee_ids"`
-	RequestedReviewerIDs []int64  `json:"requested_reviewer_ids"`
-	RequestedTeamIDs     []int64  `json:"requested_team_ids"`
-	Labels               []string `json:"labels"`
-	MilestoneID          *int64   `json:"milestone_id"`
-}
-
-type GitHubPullRequest struct {
-	EventAction string          `json:"event"`
-	RepoInfo    Repository      `json:"repository"`
-	SentBy      Sender          `json:"sender"`
-	PRInfo      PullRequestInfo `json:"pull_request"`
-	TimeStamp   TimeStamp       `json:"timestamps"`
-	Metrics     Metrics         `json:"metrics"`
-	GitInfo     Git             `json:"git"`
-	Workflow    Workflow        `json:"workflow"`
-}
-
-// ==============================
-// ISSUES WEBHOOK ONLY (EVERYTHING BELOW)
-// ==============================
-
-type Assignee struct {
-	ID   int64  `json:"id"`
-	Name string `json:"login"`
-	Type string `json:"type"`
-}
-
-type Label struct {
-	ID          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-}
-
-type Milestone struct {
-	Description *string `json:"description"`
-	DueOn       *string `json:"due_on"`
-	State       string  `json:"state"`
-	Title       string  `json:"title"`
-}
-
-type Reactions struct {
-	TotalCount       int `json:"total_count"`
-	PositiveReaction int `json:"+1"`
-	NegativeReaction int `json:"-1"`
-	Confused         int `json:"confused"`
-	Eyes             int `json:"eyes"`
-	Heart            int `json:"heart"`
-	Hooray           int `json:"hooray"`
-	Laugh            int `json:"laugh"`
-	Rocket           int `json:"rocket"`
-}
-
-type SubIssuesSummary struct {
-	Total            int `json:"total"`
-	Completed        int `json:"completed"`
-	PercentCompleted int `json:"percent_completed"`
-}
-
-type IssueDependenciesSummary struct {
-	TotalBlockedBy int `json:"total_blocked_by"`
-	TotalBlocking  int `json:"total_blocking"`
-}
-
-type SingleSelectOption struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-type MultiSelectOption struct {
-	MultiSelectOptionID int64  `json:"id"`
-	Name                string `json:"name"`
-}
-
-type IssueFieldValue struct {
-	IssueFieldName     string               `json:"issue_field_name"`
-	DataType           string               `json:"data_type"`
-	Value              json.RawMessage      `json:"value"`
-	SingleSelectOption *SingleSelectOption  `json:"single_select_option,omitempty"`
-	MultiSelectOptions *[]MultiSelectOption `json:"multi_select_options,omitempty"`
-}
-
-type Type struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-}
-
-type User struct {
-	ID   int64  `json:"id"`
-	Name string `json:"login"`
-	Type string `json:"type"`
-}
-
-type Issue struct {
-	ID              int64      `json:"id"`
-	AuthAssociation string     `json:"author_association"`
-	Body            *string    `json:"body"`
-	Comments        int        `json:"comments"`
-	Draft           bool       `json:"draft"`
-	CreatedAt       time.Time  `json:"created_at"`
-	ClosedAt        *time.Time `json:"closed_at"`
-	Labels          []Label    `json:"labels"`
-	Locked          bool       `json:"locked"`
-	Milestone       *Milestone `json:"milestone,omitempty"`
-	Number          int        `json:"number"`
-	Reactions       Reactions  `json:"reactions"`
-	// Only open/closed
-	State                    string                   `json:"state"`
-	StateReason              *string                  `json:"state_reason"`
-	SubIssuesSummary         SubIssuesSummary         `json:"sub_issues_summary"`
-	IssueDependenciesSummary IssueDependenciesSummary `json:"issue_dependencies_summary"`
-	IssueFieldValues         []IssueFieldValue        `json:"issue_field_values"`
-	Title                    string                   `json:"title"`
-	Type                     *Type                    `json:"type,omitempty"`
-	UpdatedAt                time.Time                `json:"updated_at"`
-	User                     *User                    `json:"user,omitempty"`
-	Assignee                 *Assignee                `json:"assignee"`
-}
-
-type GitHubIssues struct {
-	RepoInfo     Repository `json:"repository"`
-	Action       string     `json:"action"`
-	AssigneeInfo *Assignee  `json:"assignee,omitempty"`
-	IssueInfo    Issue      `json:"issue"`
-	Sender       Sender     `json:"sender"`
-}
-
-// ==============================
-// ISSUE COMMENT WEBHOOK ONLY (EVERYTHING BELOW)
-// ==============================
-
-type Body struct {
-	From string `json:"from"`
-}
-type Change struct {
-	Body Body `json:"body"`
-}
-
-type Comment struct {
-	ID                int64     `json:"id"`
-	User              User      `json:"user"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
-	AuthorAssociation string    `json:"author_association"`
-	Body              string    `json:"body"`
-	Reactions         Reactions `json:"reactions"`
-}
-
-type GitHubIssueComment struct {
-	Action     string     `json:"action"`
-	Changes    *Change    `json:"changes,omitempty"`
-	Comment    Comment    `json:"comment"`
-	Issue      Issue      `json:"issue"`
-	Repository Repository `json:"repository"`
-	Sender     Sender     `json:"sender"`
-}
-
-// ==============================
-// RELEASES WEBHOOK ONLY (EVERYTHING BELOW)
-// =============================
-
-type Release struct {
-	ID              int64      `json:"id"`
-	TagName         string     `json:"tag_name"`
-	Name            string     `json:"name"`
-	Body            string     `json:"body"`
-	TargetCommitish string     `json:"target_commitish"`
-	Draft           bool       `json:"draft"`
-	Prerelease      bool       `json:"prerelease"`
-	PublishedAt     *time.Time `json:"published_at"`
-	Author          Author     `json:"author"`
-}
-
-type GitHubReleases struct {
-	Action     string     `json:"action"`
-	Release    Release    `json:"release"`
-	Repository Repository `json:"repository"`
-	Sender     Sender     `json:"sender"`
 }

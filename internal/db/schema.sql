@@ -87,10 +87,10 @@ CREATE TABLE github_user(
 
     ---------- GENERAL INFO NUM ----------
     followers INT NOT NULL DEFAULT 0,
-    total_repos SMALLINT NOT NULL,
+    total_repos INT NOT NULL,
 
     ---------- GENERAL INFO BOOL ----------
-    hireable BOOLEAN NOT NULL,
+    is_hireable BOOLEAN NOT NULL,
 
     ---------- URLs ----------
     avatar_url TEXT NOT NULL,
@@ -115,10 +115,10 @@ CREATE TABLE github_repo(
     description TEXT,
     readme TEXT,
     main_language TEXT,
-    secondary_languages TEXT[],
+    secondary_languages TEXT[] DEFAULT '{}',
     license_key TEXT,
     CONSTRAINT github_repo_license_key_fkey FOREIGN KEY (license_key) REFERENCES github_repo_license(license_key) ON DELETE SET NULL,
-    topic TEXT[] DEFAULT '{}',
+    topics TEXT[] DEFAULT '{}',
     visibility TEXT NOT NULL,
 
     ---------- GENERAL INFO NUM ----------
@@ -128,7 +128,7 @@ CREATE TABLE github_repo(
     total_releases INT NOT NULL,
     
     ---------- GENERAL INFO BOOL ----------
-    archived BOOLEAN NOT NULL,
+    is_archived BOOLEAN NOT NULL,
     
     ---------- URLs ----------
     html_url TEXT NOT NULL,
@@ -158,7 +158,7 @@ CREATE TABLE pull_requests(
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     state TEXT NOT NULL,
-    labels TEXT[],
+    labels TEXT[] DEFAULT '{}',
 
    ---------- GENERAL INFO NUM ----------
    additions INT NOT NULL,
@@ -230,7 +230,7 @@ CREATE TABLE issue_requests(
     state TEXT NOT NULL,
     state_reason TEXT,
     issue_type TEXT,
-    labels TEXT[],
+    labels TEXT[] DEFAULT '{}',
 
     ---------- GENERAL INFO NUM ----------
     number INT NOT NULL,
@@ -240,8 +240,8 @@ CREATE TABLE issue_requests(
     total_reactions INT NOT NULL,
 
     ---------- GENERAL INFO BOOL ----------
-    is_closed BOOLEAN,
-    is_locked BOOLEAN,
+    is_closed BOOLEAN NOT NULL,
+    is_locked BOOLEAN NOT NULL,
 
     ---------- URLs ----------
     html_url TEXT NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE release_requests(
     action TEXT,
     author_login TEXT,
     name TEXT,
-    tag_name TEXT,
+    tag_name TEXT NOT NULL,
     description TEXT,
 
     ---------- GENERAL INFO NUM ---------
@@ -334,7 +334,7 @@ CREATE TABLE push_webhook(
 
 CREATE TABLE github_repo_push_commit(
     push_id UUID NOT NULL,
-    CONSTRAINT github_repo_push_commit_push_id_fkey FOREIGN KEY (push_id) REFERENCES github_repo_push(id) ON DELETE CASCADE,
+    CONSTRAINT github_repo_push_commit_push_id_fkey FOREIGN KEY (push_id) REFERENCES push_webhook(id) ON DELETE CASCADE,
     commit_sha TEXT NOT NULL,
     CONSTRAINT github_repo_push_commit_commit_sha_pkey PRIMARY KEY (commit_sha),
     message TEXT NOT NULL,

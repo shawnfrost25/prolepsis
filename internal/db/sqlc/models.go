@@ -56,166 +56,160 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type GithubRepo struct {
-	GithubID     int64
-	RepoID       int64
-	Name         string
-	HtmlUrl      string
-	Description  *string
-	CreatedAt    pgtype.Timestamptz
-	PushedAt     pgtype.Timestamptz
-	Stars        *int32
-	Watches      *int32
-	ForksCount   *int32
-	MainLanguage *string
-	LicenseKey   *string
-	Topic        []string
-	Archived     bool
-	Visibility   string
-}
-
-type GithubRepoIssue struct {
-	ID           pgtype.UUID
-	GithubRepoID int64
-	GithubUserID int64
-	HookID       int64
-	EventAction  string
-	AssigneeID   *int64
-	AssigneeName *string
-	AssigneeType *string
-	SenderID     int64
-	SenderName   string
-	SenderType   string
-}
-
-type GithubRepoIssuesComment struct {
-	IssueID           int64
-	Action            string
-	ChangeFrom        *string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
-	AuthorAssociation string
-	CommentID         int64
-	CommentorID       int64
-	CommentorName     string
-	CommentorType     string
-	Body              string
-	PositiveReactions int32
-	NegativeReactions int32
-	TotalReactions    int32
-}
-
-type GithubRepoIssuesFieldValue struct {
-	ID                     pgtype.UUID
-	IssueID                int64
-	IssueFieldName         string
-	DataType               string
-	Value                  []byte
-	SingleSelectOptionID   *int64
-	SingleSelectOptionName *string
-}
-
-type GithubRepoIssuesInfo struct {
-	RelatedID                     pgtype.UUID
-	IssueID                       int64
-	AuthorAssociation             string
-	Body                          *string
-	Comments                      int32
-	Draft                         bool
-	CreatedAt                     pgtype.Timestamptz
-	DeletedAt                     pgtype.Timestamptz
-	Locked                        bool
-	MilestoneDescription          *string
-	MilestoneDueOn                *string
-	MilestoneState                *string
-	MilestoneTitle                *string
-	Number                        int32
-	PositiveReactions             int32
-	NegativeReactions             int32
-	ReactionsTotalCount           int32
-	State                         string
-	StateReason                   *string
-	SubIssueTotal                 int32
-	SubIssueCompleted             int32
-	SubIssuePercentCompleted      int32
-	IssueDependencyTotalBlockedBy int32
-	IssueDependencyTotalBlocking  int32
-	Title                         string
-	TypeName                      *string
-	TypeDescription               *string
-	UpdatedAt                     pgtype.Timestamptz
-	IssueCreatedBy                *int64
-	CreatorName                   *string
-	CreatorType                   *string
-	AssigneeID                    *int64
-	AssigneeName                  *string
-	AssigneeType                  *string
-}
-
-type GithubRepoIssuesLabel struct {
-	IssueID     int64
-	LabelID     int64
-	Name        string
-	Description *string
-}
-
-type GithubRepoIssuesMultiSelectOption struct {
-	FieldValueID pgtype.UUID
-	ID           int64
-	Name         string
+	GithubID           int64
+	RepoID             int64
+	HookID             *int64
+	Name               string
+	Description        *string
+	Readme             *string
+	MainLanguage       *string
+	SecondaryLanguages []string
+	LicenseKey         *string
+	Topics             []string
+	Visibility         string
+	Stars              int32
+	Watches            int32
+	ForksCount         int32
+	TotalReleases      int32
+	IsArchived         bool
+	HtmlUrl            string
+	CreatedAt          pgtype.Timestamptz
+	PushedAt           pgtype.Timestamptz
 }
 
 type GithubRepoLicense struct {
+	SpdxID     *string
+	NodeID     string
 	LicenseKey string
 	Name       string
-	SpdxID     string
-	Url        *string
-	NodeID     string
+	Body       string
+	HtmlUrl    *string
 }
 
-type GithubRepoPullRequest struct {
-	GithubRepoID         int64
-	GithubUserID         int64
-	HookID               int64
-	EventAction          string
-	FullName             string
-	SenderID             int64
-	SenderName           string
-	SenderType           string
-	PullRequestID        int64
-	CreatedAt            pgtype.Timestamptz
-	UpdatedAt            pgtype.Timestamptz
-	ClosedAt             pgtype.Timestamptz
-	MergedAt             pgtype.Timestamptz
-	Additions            int32
-	Deletions            int32
-	ChangedFiles         int32
-	CommitsCount         int32
-	CommentsCount        int32
-	ReviewCommentsCount  int32
-	HeadBranch           string
-	HeadSha              string
-	BaseBranch           string
-	MergeCommitSha       *string
-	AssigneeIds          []int64
-	RequestedReviewerIds []int64
-	RequestedTeamIds     []int64
-	Labels               []string
-	MilestoneID          *int64
+type GithubRepoPushCommit struct {
+	PushID      pgtype.UUID
+	CommitSha   string
+	Message     string
+	Added       []string
+	Removed     []string
+	Modified    []string
+	Url         string
+	CommittedAt pgtype.Timestamptz
 }
 
-type GithubRepoPullRequestInfo struct {
-	ID         int64
-	Number     int32
-	Title      string
-	State      string
-	IsDraft    bool
-	IsMerged   *bool
-	AuthorID   *int64
-	AuthorName *string
-	AuthorType *string
+type GithubRepoWebhookDelivery struct {
+	DeliveryID pgtype.UUID
 }
 
-type GithubRepoPush struct {
+type GithubUser struct {
+	UserID        pgtype.UUID
+	GithubID      int64
+	Login         string
+	Company       *string
+	Email         *string
+	Bio           *string
+	StatusMessage *string
+	Followers     int32
+	TotalRepos    int32
+	IsHireable    bool
+	AvatarUrl     string
+	HtmlUrl       string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type IssueComment struct {
+	ID              int64
+	IssueID         int64
+	Action          *string
+	AuthorLogin     *string
+	Body            string
+	MinimizedReason *string
+	IsMinimized     bool
+	HtmlUrl         string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	LastEditedAt    pgtype.Timestamptz
+}
+
+type IssueRequest struct {
+	ID                 int64
+	GithubRepoID       int64
+	GithubUserID       int64
+	Action             *string
+	AuthorLogin        *string
+	Title              string
+	Body               string
+	State              string
+	StateReason        *string
+	IssueType          *string
+	Labels             []string
+	Number             int32
+	ParticipantsNumber int32
+	PositiveReactions  int32
+	NegativeReactions  int32
+	TotalReactions     int32
+	IsClosed           bool
+	IsLocked           bool
+	HtmlUrl            string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	ClosedAt           pgtype.Timestamptz
+	LastEditedAt       pgtype.Timestamptz
+}
+
+type PendingDeletion struct {
+	UserID        pgtype.UUID
+	RequestedBy   pgtype.UUID
+	Clarification *string
+	RequestedAt   pgtype.Timestamptz
+	ScheduledAt   pgtype.Timestamptz
+	IsProcessed   bool
+}
+
+type PullRequest struct {
+	ID                 int64
+	GithubRepoID       int64
+	GithubUserID       int64
+	Action             *string
+	AuthorLogin        *string
+	Title              string
+	Body               string
+	State              string
+	Labels             []string
+	Additions          int32
+	ChangedFiles       int32
+	Deletions          int32
+	Number             int32
+	ParticipantsNumber int32
+	PositiveReactions  int32
+	NegativeReactions  int32
+	TotalReactions     int32
+	IsClosed           bool
+	IsDraft            bool
+	IsLocked           bool
+	IsMerged           bool
+	HtmlUrl            string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	ClosedAt           pgtype.Timestamptz
+	MergedAt           pgtype.Timestamptz
+}
+
+type PullRequestComment struct {
+	ID              int64
+	PrID            int64
+	Action          *string
+	AuthorLogin     *string
+	Body            string
+	MinimizedReason *string
+	IsMinimized     bool
+	HtmlUrl         string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	LastEditedAt    pgtype.Timestamptz
+}
+
+type PushWebhook struct {
 	ID           pgtype.UUID
 	GithubRepoID int64
 	GithubUserID int64
@@ -232,63 +226,22 @@ type GithubRepoPush struct {
 	PushedAt     pgtype.Timestamptz
 }
 
-type GithubRepoPushCommit struct {
-	PushID      pgtype.UUID
-	CommitSha   string
-	Message     string
-	Added       []string
-	Removed     []string
-	Modified    []string
-	Url         string
-	CommittedAt pgtype.Timestamptz
-}
-
-type GithubRepoRelease struct {
-	GithubRepoID    int64
-	GithubUserID    int64
-	ReleasesID      int64
-	HookID          int64
-	Action          string
-	TagName         string
-	Name            string
-	Body            string
-	TargetCommitish string
-	Draft           bool
-	Prerelease      bool
-	PublishedAt     pgtype.Timestamptz
-	SenderID        int64
-	SenderName      string
-	SenderType      string
-}
-
-type GithubRepoWebhookDelivery struct {
-	DeliveryID pgtype.UUID
-}
-
-type GithubUser struct {
-	UserID            pgtype.UUID
-	GithubID          int64
-	Name              string
-	AvatarUrl         string
-	HtmlUrl           string
-	Company           *string
-	Email             *string
-	Hireable          *bool
-	Bio               *string
-	Followers         *int32
-	TotalPublicRepos  int16
-	TotalPrivateRepos int16
-	TotalRepos        int16
-	CreatedAt         pgtype.Timestamptz
-}
-
-type PendingDeletion struct {
-	UserID        pgtype.UUID
-	RequestedBy   pgtype.UUID
-	Clarification string
-	RequestedAt   pgtype.Timestamptz
-	ScheduledAt   pgtype.Timestamptz
-	IsProcessed   bool
+type ReleaseRequest struct {
+	ID            int64
+	GithubRepoID  int64
+	GithubUserID  int64
+	Action        *string
+	AuthorLogin   *string
+	Name          *string
+	TagName       string
+	Description   *string
+	IsDraft       bool
+	IsPrereleased bool
+	IsImmutable   bool
+	HtmlUrl       string
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	PublishedAt   pgtype.Timestamptz
 }
 
 type User struct {
