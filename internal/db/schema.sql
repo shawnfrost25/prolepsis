@@ -270,7 +270,7 @@ CREATE TABLE issue_comments(
     ---------- GENERAL INFO NUM ----------
 
     ---------- GENERAL INFO BOOL ----------
-    is_minimized BOOLEAN NOT NULL,
+    is_minimized BOOLEAN,
 
     ---------- URLs ----------
     html_url TEXT NOT NULL,

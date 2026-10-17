@@ -26,6 +26,32 @@ func (q *Queries) ExistGitHubRepo(ctx context.Context, repoID int64) (bool, erro
 	return exists, err
 }
 
+const existIssue = `-- name: ExistIssue :one
+SELECT EXISTS (
+    SELECT 1 FROM issue_requests WHERE id = $1::bigint
+)
+`
+
+func (q *Queries) ExistIssue(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, existIssue, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existPullRequest = `-- name: ExistPullRequest :one
+SELECT EXISTS (
+    SELECT 1 FROM pull_requests WHERE id = $1::bigint
+)
+`
+
+func (q *Queries) ExistPullRequest(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, existPullRequest, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertGitHubLicense = `-- name: InsertGitHubLicense :exec
 INSERT INTO github_repo_license(
     spdx_id,

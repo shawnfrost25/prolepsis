@@ -115,7 +115,7 @@ type IssueComment struct {
 	AuthorLogin     *string
 	Body            string
 	MinimizedReason *string
-	IsMinimized     bool
+	IsMinimized     *bool
 	HtmlUrl         string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz

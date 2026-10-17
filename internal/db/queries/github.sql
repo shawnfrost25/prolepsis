@@ -432,3 +432,13 @@ INSERT INTO push_commits (
 SELECT EXISTS (
     SELECT 1 FROM github_repo WHERE repo_id = sqlc.arg('repo_id')::bigint
 );
+
+-- name: ExistIssue :one
+SELECT EXISTS (
+    SELECT 1 FROM issue_requests WHERE id = sqlc.arg('id')::bigint
+);
+
+-- name: ExistPullRequest :one
+SELECT EXISTS (
+    SELECT 1 FROM pull_requests WHERE id = sqlc.arg('id')::bigint
+);

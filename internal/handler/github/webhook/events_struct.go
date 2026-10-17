@@ -116,7 +116,7 @@ type ReleasesWebhook struct {
 }
 
 // ==============================
-// RELEASE WEBHOOK ONLY (EVERYTHING BELOW)
+// ISSUE COMMENT WEBHOOK ONLY (EVERYTHING BELOW)
 // ==============================
 type IssueCommentsWebhook struct {
 	Action       string `json:"action"`
@@ -124,9 +124,12 @@ type IssueCommentsWebhook struct {
 		ID      int64  `json:"id"`
 		Body    string `json:"body"`
 		HtmlUrl string `json:"html_url"`
-		Author  struct {
+		Author  *struct {
 			Login string `json:"login"`
 		} `json:"user"`
+		PullRequest *struct {
+			HTMLURL string `json:"html_url"`
+		} `json:"pull_request,omitempty"`
 		IsMinimized *bool     `json:"minimized"`
 		CreatedAt   time.Time `json:"created_at"`
 		UpdatedAt   time.Time `json:"updated_at"`

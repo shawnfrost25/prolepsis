@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
+func (h WebhookHandler) WebhookRelease(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "releases").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
