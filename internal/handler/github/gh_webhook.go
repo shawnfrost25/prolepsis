@@ -169,5 +169,7 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		wh.WebhookIssueComment(w, r, bodyBytes, deliveryID)
 	case "release":
 		wh.WebhookRelease(w, r, bodyBytes, deliveryID)
+	case "repository":
+		wh.WebhookRepository(w, r, bodyBytes, deliveryID)
 	}
 }

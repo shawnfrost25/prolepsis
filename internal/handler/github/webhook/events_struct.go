@@ -184,10 +184,9 @@ type RepositoryWebhook struct {
 	HtmlUrl     string     `json:"html_url"`
 	Description *string    `json:"description"`
 	IsFork      bool       `json:"fork"`
-	Language    string     `json:"language"`
+	Language    *string    `json:"language"`
 	Stars       int        `json:"stargazers_count"`
 	Watches     int        `json:"watchers_count"`
-	Topics      []string   `json:"topics"`
 	IsArchived  bool       `json:"archived"`
 	Visibility  *string    `json:"visibility"`
 	PushedAt    *time.Time `json:"pushed_at"`
