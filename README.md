@@ -46,7 +46,8 @@
 * **Advanced Telemetry:** Implementing robust observability and monitoring pipelines utilizing OpenTelemetry, Grafana Alloy, Grafana dashboards, and planned Prometheus integration.
 * **Cloud & Infrastructure as Code:** Provisioning and managing cloud architecture on AWS using Terraform and OpenTofu with HCL syntax, remote state locking, and strict cost guardrails.
 * **Kubernetes Orchestration:** Deploying services on Kubernetes via k3d using Helm charts, health probes, resource limits, and automated rolling updates with fast rollback capabilities.
-* **Production-Grade Testing:** Elevating the test suite to mimic real-world production environments using containerized dependencies (Testcontainers), chaos-replay verification streams, and rigorous race detection.   
+* **Production-Grade Testing:** Elevating the test suite to mimic real-world production environments using containerized dependencies (Testcontainers), chaos-replay verification streams, and rigorous race detection.
+* **GitHub App Migration:** Migrating the webhook creation to GitHub App.
 
 ---
 ## Note on Development and AI usage
