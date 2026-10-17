@@ -283,8 +283,7 @@ INSERT INTO issue_requests (
     html_url,
     created_at,
     updated_at,
-    closed_at,
-    last_edited_at
+    closed_at
 ) VALUES (
     $1::bigint,
     $2::bigint,
@@ -307,8 +306,7 @@ INSERT INTO issue_requests (
     $19::text,
     $20::timestamptz,
     $21::timestamptz,
-    $22::timestamptz,
-    $23::timestamptz
+    $22::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -327,8 +325,7 @@ INSERT INTO issue_requests (
     is_locked = EXCLUDED.is_locked,
     html_url = EXCLUDED.html_url,
     updated_at = EXCLUDED.updated_at,
-    closed_at = EXCLUDED.closed_at,
-    last_edited_at = EXCLUDED.last_edited_at
+    closed_at = EXCLUDED.closed_at
 `
 
 type InsertIssueParams struct {
@@ -354,7 +351,6 @@ type InsertIssueParams struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	ClosedAt           pgtype.Timestamptz
-	LastEditedAt       pgtype.Timestamptz
 }
 
 func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) error {
@@ -381,7 +377,6 @@ func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) error 
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.ClosedAt,
-		arg.LastEditedAt,
 	)
 	return err
 }
@@ -397,8 +392,7 @@ INSERT INTO issue_comments (
     is_minimized,
     html_url,
     created_at,
-    updated_at,
-    last_edited_at
+    updated_at
 ) VALUES (
     $1::bigint,
     $2::bigint,
@@ -409,8 +403,7 @@ INSERT INTO issue_comments (
     $7::boolean,
     $8::text,
     $9::timestamptz,
-    $10::timestamptz,
-    $11::timestamptz
+    $10::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -418,8 +411,7 @@ INSERT INTO issue_comments (
     minimized_reason = EXCLUDED.minimized_reason,
     is_minimized = EXCLUDED.is_minimized,
     html_url = EXCLUDED.html_url,
-    updated_at = EXCLUDED.updated_at,
-    last_edited_at = EXCLUDED.last_edited_at
+    updated_at = EXCLUDED.updated_at
 `
 
 type InsertIssueCommentParams struct {
@@ -433,7 +425,6 @@ type InsertIssueCommentParams struct {
 	HtmlUrl         string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
-	LastEditedAt    pgtype.Timestamptz
 }
 
 func (q *Queries) InsertIssueComment(ctx context.Context, arg InsertIssueCommentParams) error {
@@ -448,7 +439,6 @@ func (q *Queries) InsertIssueComment(ctx context.Context, arg InsertIssueComment
 		arg.HtmlUrl,
 		arg.CreatedAt,
 		arg.UpdatedAt,
-		arg.LastEditedAt,
 	)
 	return err
 }
@@ -605,8 +595,7 @@ INSERT INTO pull_request_comments (
     is_minimized,
     html_url,
     created_at,
-    updated_at,
-    last_edited_at
+    updated_at
 ) VALUES (
     $1::bigint,
     $2::bigint,
@@ -617,8 +606,7 @@ INSERT INTO pull_request_comments (
     $7::boolean,
     $8::text,
     $9::timestamptz,
-    $10::timestamptz,
-    $11::timestamptz
+    $10::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -626,8 +614,7 @@ INSERT INTO pull_request_comments (
     minimized_reason = EXCLUDED.minimized_reason,
     is_minimized = EXCLUDED.is_minimized,
     html_url = EXCLUDED.html_url,
-    updated_at = EXCLUDED.updated_at,
-    last_edited_at = EXCLUDED.last_edited_at
+    updated_at = EXCLUDED.updated_at
 `
 
 type InsertPullRequestCommentParams struct {
@@ -641,7 +628,6 @@ type InsertPullRequestCommentParams struct {
 	HtmlUrl         string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
-	LastEditedAt    pgtype.Timestamptz
 }
 
 func (q *Queries) InsertPullRequestComment(ctx context.Context, arg InsertPullRequestCommentParams) error {
@@ -656,7 +642,6 @@ func (q *Queries) InsertPullRequestComment(ctx context.Context, arg InsertPullRe
 		arg.HtmlUrl,
 		arg.CreatedAt,
 		arg.UpdatedAt,
-		arg.LastEditedAt,
 	)
 	return err
 }

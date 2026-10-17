@@ -212,8 +212,7 @@ INSERT INTO pull_request_comments (
     is_minimized,
     html_url,
     created_at,
-    updated_at,
-    last_edited_at
+    updated_at
 ) VALUES (
     sqlc.arg('id')::bigint,
     sqlc.arg('pr_id')::bigint,
@@ -224,8 +223,7 @@ INSERT INTO pull_request_comments (
     sqlc.arg('is_minimized')::boolean,
     sqlc.arg('html_url')::text,
     sqlc.arg('created_at')::timestamptz,
-    sqlc.arg('updated_at')::timestamptz,
-    sqlc.narg('last_edited_at')::timestamptz
+    sqlc.arg('updated_at')::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -233,8 +231,7 @@ INSERT INTO pull_request_comments (
     minimized_reason = EXCLUDED.minimized_reason,
     is_minimized = EXCLUDED.is_minimized,
     html_url = EXCLUDED.html_url,
-    updated_at = EXCLUDED.updated_at,
-    last_edited_at = EXCLUDED.last_edited_at;
+    updated_at = EXCLUDED.updated_at;
 
 -- name: InsertIssue :exec
 INSERT INTO issue_requests (
@@ -259,8 +256,7 @@ INSERT INTO issue_requests (
     html_url,
     created_at,
     updated_at,
-    closed_at,
-    last_edited_at
+    closed_at
 ) VALUES (
     sqlc.arg('id')::bigint,
     sqlc.arg('github_repo_id')::bigint,
@@ -283,8 +279,7 @@ INSERT INTO issue_requests (
     sqlc.arg('html_url')::text,
     sqlc.arg('created_at')::timestamptz,
     sqlc.arg('updated_at')::timestamptz,
-    sqlc.narg('closed_at')::timestamptz,
-    sqlc.narg('last_edited_at')::timestamptz
+    sqlc.narg('closed_at')::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -303,8 +298,7 @@ INSERT INTO issue_requests (
     is_locked = EXCLUDED.is_locked,
     html_url = EXCLUDED.html_url,
     updated_at = EXCLUDED.updated_at,
-    closed_at = EXCLUDED.closed_at,
-    last_edited_at = EXCLUDED.last_edited_at;
+    closed_at = EXCLUDED.closed_at;
 
 -- name: InsertIssueComment :exec
 INSERT INTO issue_comments (
@@ -317,8 +311,7 @@ INSERT INTO issue_comments (
     is_minimized,
     html_url,
     created_at,
-    updated_at,
-    last_edited_at
+    updated_at
 ) VALUES (
     sqlc.arg('id')::bigint,
     sqlc.arg('issue_id')::bigint,
@@ -329,8 +322,7 @@ INSERT INTO issue_comments (
     sqlc.arg('is_minimized')::boolean,
     sqlc.arg('html_url')::text,
     sqlc.arg('created_at')::timestamptz,
-    sqlc.arg('updated_at')::timestamptz,
-    sqlc.narg('last_edited_at')::timestamptz
+    sqlc.arg('updated_at')::timestamptz
 ) ON CONFLICT (id) DO UPDATE SET
     action = EXCLUDED.action,
     author_login = EXCLUDED.author_login,
@@ -338,8 +330,7 @@ INSERT INTO issue_comments (
     minimized_reason = EXCLUDED.minimized_reason,
     is_minimized = EXCLUDED.is_minimized,
     html_url = EXCLUDED.html_url,
-    updated_at = EXCLUDED.updated_at,
-    last_edited_at = EXCLUDED.last_edited_at;
+    updated_at = EXCLUDED.updated_at;
 
 -- name: InsertRelease :exec
 INSERT INTO release_requests (

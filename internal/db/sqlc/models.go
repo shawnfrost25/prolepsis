@@ -119,7 +119,6 @@ type IssueComment struct {
 	HtmlUrl         string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
-	LastEditedAt    pgtype.Timestamptz
 }
 
 type IssueRequest struct {
@@ -146,7 +145,6 @@ type IssueRequest struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	ClosedAt           pgtype.Timestamptz
-	LastEditedAt       pgtype.Timestamptz
 }
 
 type PendingDeletion struct {
@@ -198,7 +196,6 @@ type PullRequestComment struct {
 	HtmlUrl         string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
-	LastEditedAt    pgtype.Timestamptz
 }
 
 type PushCommit struct {

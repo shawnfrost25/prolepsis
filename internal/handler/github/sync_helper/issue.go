@@ -62,10 +62,6 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 		if issue.ClosedAt != nil {
 			closedAt = pgtype.Timestamptz{Time: *issue.ClosedAt, Valid: true}
 		}
-		var lastEditedAt pgtype.Timestamptz
-		if issue.LastEditedAt != nil {
-			lastEditedAt = pgtype.Timestamptz{Time: *issue.LastEditedAt, Valid: true}
-		}
 
 		err := queries.InsertIssue(ctx, db.InsertIssueParams{
 			ID:                 issueId,
@@ -89,7 +85,6 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 			CreatedAt:          pgtype.Timestamptz{Time: issue.CreatedAt, Valid: true},
 			UpdatedAt:          pgtype.Timestamptz{Time: issue.UpdatedAt, Valid: true},
 			ClosedAt:           closedAt,
-			LastEditedAt:       lastEditedAt,
 		})
 		if err != nil {
 			logger = logger.With().Str("issue_name", issue.Title).Str("issue_id", *issue.FullDatabaseId).Logger()
@@ -118,10 +113,6 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 						Msg("skip issue comment")
 					continue
 				}
-				var lasteEditedAt pgtype.Timestamptz
-				if comment.LastEditedAt != nil {
-					lasteEditedAt = pgtype.Timestamptz{Time: *comment.LastEditedAt, Valid: true}
-				}
 
 				err = queries.InsertIssueComment(ctx, db.InsertIssueCommentParams{
 					ID:              issueCommentId,
@@ -132,7 +123,6 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 					HtmlUrl:         comment.HtmlUrl,
 					CreatedAt:       pgtype.Timestamptz{Time: comment.CreatedAt, Valid: true},
 					UpdatedAt:       pgtype.Timestamptz{Time: comment.UpdatedAt, Valid: true},
-					LastEditedAt:    lasteEditedAt,
 				})
 				if err != nil {
 					logger.Debug().

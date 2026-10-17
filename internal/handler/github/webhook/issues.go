@@ -8,18 +8,15 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
-	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
+func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "issues").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -29,99 +26,102 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var req GitHubIssues
+	var req IssuesWebhook
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
 		errlog.ParsingError(logger, "issues_format", w, trace, err)
 		return
 	}
 
-	repoIDStr := strconv.FormatInt(req.RepoInfo.ID, 10)
-	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
+	var pgErr *pgconn.PgError
+
+	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
+			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
 			return
 		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "hook_id", w, trace, err)
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
 		return
 	}
-
-	if hookIDStr == "" {
-		errlog.EmptyValueError(logger, "hook_id", w, trace)
-		return
+	if insertedRows == 0 {
+		logger.Debug().
+			Int("status", http.StatusOK).
+			Str("code", "delivery_id_deduplication").
+			Msg("delivery id already exists")
+		lib.Pretty(w, http.StatusOK, nil)
 	}
 
-	if req.IssueInfo.Title == "" {
+	if req.Issue.Title == "" {
 		errlog.EmptyValueError(logger, "issues_title", w, trace)
 		return
 	}
 
-	assignee := req.AssigneeInfo
+	positiveReactions := req.Issue.Reactions.Hooray + req.Issue.Reactions.Positive + req.Issue.Reactions.Heart + req.Issue.Reactions.Laugh + req.Issue.Reactions.Rocket
+	negativeReactions := req.Issue.Reactions.Confused + req.Issue.Reactions.Negative
 
-	var assigneeID *int64
-	var assigneeName *string
-	var assigneeType *string
-	if assignee != nil {
-		assigneeID = &req.AssigneeInfo.ID
-		assigneeName = &req.AssigneeInfo.Name
-		assigneeType = &req.AssigneeInfo.Type
-	}
-
-	milestone := req.IssueInfo.Milestone
-	var milestoneDescription *string
-	var milestoneDueOn *string
-	var milestoneState *string
-	var milestoneTitle *string
-	if milestone != nil {
-		milestoneDescription = req.IssueInfo.Milestone.Description
-		milestoneDueOn = req.IssueInfo.Milestone.DueOn
-		milestoneState = &req.IssueInfo.Milestone.State
-		milestoneTitle = &req.IssueInfo.Milestone.Title
-	}
-
-	positiveReactions := req.IssueInfo.Reactions.Hooray + req.IssueInfo.Reactions.PositiveReaction + req.IssueInfo.Reactions.Heart + req.IssueInfo.Reactions.Laugh + req.IssueInfo.Reactions.Rocket
-	negativeReactions := req.IssueInfo.Reactions.Confused + req.IssueInfo.Reactions.NegativeReaction
-
-	if req.IssueInfo.State != "open" && req.IssueInfo.State != "closed" {
+	if req.Issue.State != "open" && req.Issue.State != "closed" {
 		errlog.InvalidError(logger, "issues_state", w, trace)
 		return
 	}
 
-	issueEventIDRaw := uuid.New()
-	issueEventID := pgtype.UUID{Bytes: issueEventIDRaw, Valid: true}
+	var authorLogin *string
+	if req.Issue.Author != nil {
+		authorLogin = &req.Issue.Author.Login
+	}
+
 	var closedAt pgtype.Timestamptz
-	if req.IssueInfo.ClosedAt != nil {
-		closedAt = pgtype.Timestamptz{Time: *req.IssueInfo.ClosedAt, Valid: true}
+	if req.Issue.ClosedAt != nil {
+		closedAt = pgtype.Timestamptz{Time: *req.Issue.ClosedAt, Valid: true}
 	}
 
-	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
-	if err != nil {
-		errlog.ParsingError(logger, "hook_id", w, trace, err)
-		return
+	var issueType *string
+	if req.Issue.Type != nil {
+		issueType = &req.Issue.Type.Name
 	}
 
-	var pgErr *pgconn.PgError
+	var labels []string
+	if len(req.Issue.Labels) != 0 {
+		for _, label := range req.Issue.Labels {
+			if label.Name == "" {
+				continue
+			}
+			labels = append(labels, label.Name)
+		}
+	}
 
-	err = h.Queries.InsertGitHubIssue(timeout, db.InsertGitHubIssueParams{
-		ID:           issueEventID,
-		GithubRepoID: req.RepoInfo.ID,
-		GithubUserID: req.RepoInfo.OwnerID.ID,
-		HookID:       hookID,
-		EventAction:  req.Action,
-		AssigneeID:   assigneeID,
-		AssigneeName: assigneeName,
-		AssigneeType: assigneeType,
-		SenderID:     req.Sender.ID,
-		SenderName:   req.Sender.Login,
-		SenderType:   req.Sender.Type,
+	closed := req.Issue.ClosedAt != nil
+
+	err = h.Queries.InsertIssue(timeout, db.InsertIssueParams{
+		ID:                req.Issue.Id,
+		GithubRepoID:      req.Repository.ID,
+		GithubUserID:      req.Repository.Owner.ID,
+		Action:            &req.Action,
+		AuthorLogin:       authorLogin,
+		Title:             req.Issue.Title,
+		Body:              *req.Issue.Body,
+		State:             req.Issue.State,
+		StateReason:       req.Issue.StateReason,
+		IssueType:         issueType,
+		Labels:            labels,
+		Number:            int32(req.Issue.Number),
+		PositiveReactions: int32(positiveReactions),
+		NegativeReactions: int32(negativeReactions),
+		TotalReactions:    int32(req.Issue.Reactions.TotalCount),
+		IsClosed:          closed,
+		IsLocked:          req.Issue.IsLocked,
+		HtmlUrl:           req.Issue.HtmlUrl,
+		CreatedAt:         pgtype.Timestamptz{Time: req.Issue.CreatedAt},
+		UpdatedAt:         pgtype.Timestamptz{Time: req.Issue.UpdatedAt},
+		ClosedAt:          closedAt,
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -140,212 +140,9 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 		return
 	}
 
-	logger.Debug().
-		Str("code", "issues_inset").
-		Msg("successfully inserted issue")
-
-	var typeName *string
-	var typeDescription *string
-	if req.IssueInfo.Type != nil {
-		typeName = &req.IssueInfo.Type.Name
-		typeDescription = req.IssueInfo.Type.Description
-	}
-
-	var userID *int64
-	var userName *string
-	var userType *string
-	if req.IssueInfo.User != nil {
-		userID = &req.IssueInfo.User.ID
-		userName = &req.IssueInfo.User.Name
-		userType = &req.IssueInfo.User.Type
-	}
-
-	var innerAssigneeID *int64
-	var innerAssigneeName *string
-	var innerAssigneeType *string
-	if req.IssueInfo.Assignee != nil {
-		innerAssigneeID = &req.IssueInfo.Assignee.ID
-		innerAssigneeName = &req.IssueInfo.Assignee.Name
-		innerAssigneeType = &req.IssueInfo.Assignee.Type
-	}
-
-	rows, err := h.Queries.InsertGitHubIssueInfo(timeout, db.InsertGitHubIssueInfoParams{
-		RelatedID:                     issueEventID,
-		IssueID:                       req.IssueInfo.ID,
-		AuthorAssociation:             req.IssueInfo.AuthAssociation,
-		Body:                          req.IssueInfo.Body,
-		Comments:                      int32(req.IssueInfo.Comments),
-		Draft:                         req.IssueInfo.Draft,
-		CreatedAt:                     pgtype.Timestamptz{Time: req.IssueInfo.CreatedAt, Valid: true},
-		DeletedAt:                     closedAt,
-		Locked:                        req.IssueInfo.Locked,
-		MilestoneDescription:          milestoneDescription,
-		MilestoneDueOn:                milestoneDueOn,
-		MilestoneState:                milestoneState,
-		MilestoneTitle:                milestoneTitle,
-		Number:                        int32(req.IssueInfo.Number),
-		PositiveReactions:             int32(positiveReactions),
-		NegativeReactions:             int32(negativeReactions),
-		ReactionsTotalCount:           int32(req.IssueInfo.Reactions.TotalCount),
-		State:                         req.IssueInfo.State,
-		StateReason:                   req.IssueInfo.StateReason,
-		SubIssueTotal:                 int32(req.IssueInfo.SubIssuesSummary.Total),
-		SubIssueCompleted:             int32(req.IssueInfo.SubIssuesSummary.Completed),
-		SubIssuePercentCompleted:      int32(req.IssueInfo.SubIssuesSummary.PercentCompleted),
-		IssueDependencyTotalBlockedBy: int32(req.IssueInfo.IssueDependenciesSummary.TotalBlockedBy),
-		IssueDependencyTotalBlocking:  int32(req.IssueInfo.IssueDependenciesSummary.TotalBlocking),
-		Title:                         req.IssueInfo.Title,
-		TypeName:                      typeName,
-		TypeDescription:               typeDescription,
-		UpdatedAt:                     pgtype.Timestamptz{Time: req.IssueInfo.UpdatedAt, Valid: true},
-		IssueCreatedBy:                userID,
-		CreatorName:                   userName,
-		CreatorType:                   userType,
-		AssigneeID:                    innerAssigneeID,
-		AssigneeName:                  innerAssigneeName,
-		AssigneeType:                  innerAssigneeType,
-	})
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "issues_info_insert", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "issues_info_insert_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "issues_info_insert", w, trace, err)
-		return
-	}
-
-	if rows == 0 {
-		logger.Info().
-			Int("status", http.StatusOK).
-			Str("code", "issues_already_exists").
-			Msg("issue already exists")
-		lib.Pretty(w, http.StatusOK, map[string]string{
-			"status":  "OK",
-			"message": "Issue already present in database",
-		})
-		return
-	}
-
-	logger.Debug().
-		Str("code", "issues_info_inset").
-		Int64("issue_id", req.IssueInfo.ID).
-		Int64("issue_connected_to_repo_id", req.RepoInfo.ID).
-		Str("issue_title", req.IssueInfo.Title).
-		Msg("successfully insterted webhook issue")
-
-	for _, label := range req.IssueInfo.Labels {
-		err := h.Queries.InsertGitHubIssueLabel(timeout, db.InsertGitHubIssueLabelParams{
-			IssueID:     req.IssueInfo.ID,
-			LabelID:     label.ID,
-			Name:        label.Name,
-			Description: label.Description,
-		})
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issues_label_insert", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issues_label_insert_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "issues_label_insert", w, trace, err)
-			return
-		}
-	}
-	logger.Debug().
-		Str("code", "issues_label_inset").
-		Msg("successfully added all the labels")
-
-	for _, issueFieldValue := range req.IssueInfo.IssueFieldValues {
-		singleSelectOption := issueFieldValue.SingleSelectOption
-
-		var singleSOID *int64
-		var singleSOName *string
-		if singleSelectOption != nil {
-			singleSOID = &singleSelectOption.ID
-			singleSOName = &singleSelectOption.Name
-		}
-
-		fieldID, err := h.Queries.InsertGitHubIssueFieldValue(timeout, db.InsertGitHubIssueFieldValueParams{
-			IssueID:                req.IssueInfo.ID,
-			IssueFieldName:         issueFieldValue.IssueFieldName,
-			DataType:               issueFieldValue.DataType,
-			Value:                  issueFieldValue.Value,
-			SingleSelectOptionID:   singleSOID,
-			SingleSelectOptionName: singleSOName,
-		})
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issues_field_value_insert", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issues_field_value_insert_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "issues_field_value_insert", w, trace, err)
-			return
-		}
-
-		logger.Debug().
-			Str("code", "issues_field_value_inset").
-			Str("field_value_id", fieldID.String()).
-			Str("field_value_name", issueFieldValue.IssueFieldName).
-			Msg("successfully inserted issue field value")
-
-		if issueFieldValue.MultiSelectOptions != nil {
-			for _, multiSelectOption := range *issueFieldValue.MultiSelectOptions {
-				err := h.Queries.InsertGitHubIssueMultiSelectOption(timeout, db.InsertGitHubIssueMultiSelectOptionParams{
-					FieldValueID: fieldID,
-					ID:           multiSelectOption.MultiSelectOptionID,
-					Name:         multiSelectOption.Name,
-				})
-				if err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						errlog.DeadlineExceededError(logger, "issues_multi_select_option_insert", w, trace, err)
-						return
-					}
-					if errors.Is(err, pgconn.ErrConnClosed) {
-						errlog.ErrConnClosed(logger, w, trace, err)
-						return
-					}
-					if errors.As(err, &pgErr) {
-						errlog.PgConnError(logger, w, trace, "issues_multi_select_option_failed", pgErr, err)
-						return
-					}
-					errlog.UnexpectedError(logger, "issues_multi_select_option_insert", w, trace, err)
-					return
-				}
-
-				logger.Debug().
-					Str("code", "issues_multi_select_option_inset").
-					Int64("multi_select_option_id", multiSelectOption.MultiSelectOptionID).
-					Str("multi_select_option_name", multiSelectOption.Name).
-					Msg("successfully inserted the issue multi secelt option")
-			}
-		}
-	}
-
 	logger.Info().
 		Str("code", "success").
-		Msg("issue and issue-related fields inserted")
+		Msg("issue inserted")
 	lib.Pretty(w, http.StatusOK, map[string]string{
 		"reason": "success",
 	})

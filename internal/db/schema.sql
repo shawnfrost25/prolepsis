@@ -211,8 +211,7 @@ CREATE TABLE pull_request_comments(
 
     ---------- GENERAL INFO TIME ----------
     created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    last_edited_at TIMESTAMPTZ
+    updated_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE issue_requests(
@@ -252,8 +251,7 @@ CREATE TABLE issue_requests(
     ---------- GENERAL INFO TIME ----------
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    closed_at TIMESTAMPTZ,
-    last_edited_at TIMESTAMPTZ
+    closed_at TIMESTAMPTZ
 );
 
 CREATE TABLE issue_comments(
@@ -279,8 +277,7 @@ CREATE TABLE issue_comments(
 
     ---------- GENERAL INFO TIME ----------
     created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    last_edited_at TIMESTAMPTZ
+    updated_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE release_requests(

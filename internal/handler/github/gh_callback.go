@@ -138,7 +138,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 										minimizedReason # CAN BE NULL
 										createdAt
 										updatedAt
-										lastEditedAt # CAN BE NULL
 										url
 									}
 								}
@@ -189,7 +188,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 										minimizedReason # CAN BE NULL
 										createdAt
 										updatedAt
-										lastEditedAt # CAN BE NULL
 										url
 									}
 								}
@@ -206,7 +204,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 								issueType { # CAN BE NULL
 									name
 								}
-								lastEditedAt # CAN BE NULL
 								locked
 								number
 								reactionGroups { # A LIST

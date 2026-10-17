@@ -122,10 +122,6 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 						Msg("skip pull request comment")
 					return true
 				}
-				var lasteEditedAt pgtype.Timestamptz
-				if comment.LastEditedAt != nil {
-					lasteEditedAt = pgtype.Timestamptz{Time: *comment.LastEditedAt, Valid: true}
-				}
 
 				err = queries.InsertPullRequestComment(ctx, db.InsertPullRequestCommentParams{
 					ID:              pullRequestCommentId,
@@ -136,7 +132,6 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 					HtmlUrl:         comment.HtmlUrl,
 					CreatedAt:       pgtype.Timestamptz{Time: comment.CreatedAt, Valid: true},
 					UpdatedAt:       pgtype.Timestamptz{Time: comment.UpdatedAt, Valid: true},
-					LastEditedAt:    lasteEditedAt,
 				})
 				if err != nil {
 					logger.Debug().
