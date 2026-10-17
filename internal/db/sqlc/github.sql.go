@@ -11,6 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const existGitHubRepo = `-- name: ExistGitHubRepo :one
+
+SELECT EXISTS (
+    SELECT 1 FROM github_repo WHERE repo_id = $1::bigint
+)
+`
+
+// EXISTENCE CHECK (EVERYTHING BELOW) --
+func (q *Queries) ExistGitHubRepo(ctx context.Context, repoID int64) (bool, error) {
+	row := q.db.QueryRow(ctx, existGitHubRepo, repoID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertGitHubLicense = `-- name: InsertGitHubLicense :exec
 INSERT INTO github_repo_license(
     spdx_id,
@@ -50,88 +65,13 @@ func (q *Queries) InsertGitHubLicense(ctx context.Context, arg InsertGitHubLicen
 	return err
 }
 
-const insertGitHubPushCommitInfo = `-- name: InsertGitHubPushCommitInfo :exec
-INSERT INTO github_repo_push_commit(push_id, commit_sha, message, added, removed, modified, url, committed_at)
-VALUES(
-    $1::uuid, $2::text, $3::text, $4::text[], $5::text[], $6::text[], $7::text, $8::timestamptz
-)
-`
-
-type InsertGitHubPushCommitInfoParams struct {
-	PushID      pgtype.UUID
-	CommitSha   string
-	Message     string
-	Added       []string
-	Removed     []string
-	Modified    []string
-	Url         string
-	CommittedAt pgtype.Timestamptz
-}
-
-func (q *Queries) InsertGitHubPushCommitInfo(ctx context.Context, arg InsertGitHubPushCommitInfoParams) error {
-	_, err := q.db.Exec(ctx, insertGitHubPushCommitInfo,
-		arg.PushID,
-		arg.CommitSha,
-		arg.Message,
-		arg.Added,
-		arg.Removed,
-		arg.Modified,
-		arg.Url,
-		arg.CommittedAt,
-	)
-	return err
-}
-
-const insertGitHubPushInfo = `-- name: InsertGitHubPushInfo :one
-
-INSERT INTO push_webhook(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
-VALUES (
-    $1::bigint, $2::bigint, $3::bigint, $4::text, $5::text, $6::text, $7::text, $8::text, $9::text, $10::boolean, $11::boolean, $12::boolean
-) RETURNING id
-`
-
-type InsertGitHubPushInfoParams struct {
-	GithubRepoID int64
-	GithubUserID int64
-	HookID       int64
-	FullName     string
-	Ref          string
-	BeforeSha    *string
-	AfterSha     *string
-	HeadCommitID *string
-	Compare      string
-	Forced       bool
-	Created      bool
-	Deleted      bool
-}
-
-// --- TO UPDATE (EVERYTHING BELOW)
-func (q *Queries) InsertGitHubPushInfo(ctx context.Context, arg InsertGitHubPushInfoParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, insertGitHubPushInfo,
-		arg.GithubRepoID,
-		arg.GithubUserID,
-		arg.HookID,
-		arg.FullName,
-		arg.Ref,
-		arg.BeforeSha,
-		arg.AfterSha,
-		arg.HeadCommitID,
-		arg.Compare,
-		arg.Forced,
-		arg.Created,
-		arg.Deleted,
-	)
-	var id pgtype.UUID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const insertGitHubRepo = `-- name: InsertGitHubRepo :exec
 INSERT INTO github_repo (
-    github_id, 
-    repo_id, 
-    hook_id, 
-    name, 
+    github_id,
+    repo_id,
+    hook_id,
+    action,
+    name,
     description,
     readme,
     main_language,
@@ -146,28 +86,32 @@ INSERT INTO github_repo (
     is_archived,
     html_url,
     created_at,
-    pushed_at
+    pushed_at,
+    updated_at
 ) VALUES (
-    $1::bigint, 
-    $2::bigint, 
-    $3::bigint, 
-    $4::text, 
+    $1::bigint,
+    $2::bigint,
+    $3::bigint,
+    $4::text,
     $5::text,
     $6::text,
     $7::text,
-    $8::text[],
-    $9::text,
-    $10::text[],
-    $11::text,
-    $12::int,
+    $8::text,
+    $9::text[],
+    $10::text,
+    $11::text[],
+    $12::text,
     $13::int,
     $14::int,
     $15::int,
-    $16::boolean,
-    $17::text,
-    $18::timestamptz,
-    $19::timestamptz
+    $16::int,
+    $17::boolean,
+    $18::text,
+    COALESCE($19::timestamptz, CURRENT_TIMESTAMP),
+    $20::timestamptz,
+    $21::timestamptz
 ) ON CONFLICT (repo_id) DO UPDATE SET
+    action = EXCLUDED.action,
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     readme = EXCLUDED.readme,
@@ -182,13 +126,15 @@ INSERT INTO github_repo (
     total_releases = EXCLUDED.total_releases,
     is_archived = EXCLUDED.is_archived,
     html_url = EXCLUDED.html_url,
-    pushed_at = EXCLUDED.pushed_at
+    pushed_at = EXCLUDED.pushed_at,
+    updated_at = EXCLUDED.updated_at
 `
 
 type InsertGitHubRepoParams struct {
 	GithubID           int64
 	RepoID             int64
 	HookID             int64
+	Action             *string
 	Name               string
 	Description        *string
 	Readme             *string
@@ -205,6 +151,7 @@ type InsertGitHubRepoParams struct {
 	HtmlUrl            string
 	CreatedAt          pgtype.Timestamptz
 	PushedAt           pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 func (q *Queries) InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoParams) error {
@@ -212,6 +159,7 @@ func (q *Queries) InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoPara
 		arg.GithubID,
 		arg.RepoID,
 		arg.HookID,
+		arg.Action,
 		arg.Name,
 		arg.Description,
 		arg.Readme,
@@ -228,11 +176,13 @@ func (q *Queries) InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoPara
 		arg.HtmlUrl,
 		arg.CreatedAt,
 		arg.PushedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
 
 const insertGitHubUser = `-- name: InsertGitHubUser :exec
+
 INSERT INTO github_user(
     user_id,
     github_id,
@@ -290,6 +240,7 @@ type InsertGitHubUserParams struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+// INSERT (EVERYTHING BELOW) --
 func (q *Queries) InsertGitHubUser(ctx context.Context, arg InsertGitHubUserParams) error {
 	_, err := q.db.Exec(ctx, insertGitHubUser,
 		arg.UserID,
@@ -307,23 +258,6 @@ func (q *Queries) InsertGitHubUser(ctx context.Context, arg InsertGitHubUserPara
 		arg.CreatedAt,
 	)
 	return err
-}
-
-const insertGitHubWebhookDeliveries = `-- name: InsertGitHubWebhookDeliveries :execrows
-INSERT INTO github_repo_webhook_deliveries (
-    delivery_id
-)
-VALUES(
-    $1::uuid
-) ON CONFLICT (delivery_id) DO NOTHING
-`
-
-func (q *Queries) InsertGitHubWebhookDeliveries(ctx context.Context, deliveryID pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, insertGitHubWebhookDeliveries, deliveryID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const insertIssue = `-- name: InsertIssue :exec
@@ -606,17 +540,17 @@ type InsertPullRequestParams struct {
 	Action             *string
 	AuthorLogin        *string
 	Title              string
-	Body               string
+	Body               *string
 	State              string
 	Labels             []string
 	Additions          int32
 	ChangedFiles       int32
 	Deletions          int32
 	Number             int32
-	ParticipantsNumber int32
-	PositiveReactions  int32
-	NegativeReactions  int32
-	TotalReactions     int32
+	ParticipantsNumber *int32
+	PositiveReactions  *int32
+	NegativeReactions  *int32
+	TotalReactions     *int32
 	IsClosed           bool
 	IsDraft            bool
 	IsLocked           bool
@@ -727,6 +661,98 @@ func (q *Queries) InsertPullRequestComment(ctx context.Context, arg InsertPullRe
 	return err
 }
 
+const insertPush = `-- name: InsertPush :one
+INSERT INTO push_requests (
+    github_repo_id,
+    github_user_id,
+    ref,
+    before_sha,
+    after_sha,
+    is_forced,
+    is_created,
+    html_url
+) VALUES (
+    $1::bigint,
+    $2::bigint,
+    $3::text,
+    $4::text,
+    $5::text,
+    $6::boolean,
+    $7::boolean,
+    $8::text
+) RETURNING id
+`
+
+type InsertPushParams struct {
+	GithubRepoID int64
+	GithubUserID int64
+	Ref          string
+	BeforeSha    *string
+	AfterSha     *string
+	IsForced     bool
+	IsCreated    bool
+	HtmlUrl      string
+}
+
+func (q *Queries) InsertPush(ctx context.Context, arg InsertPushParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertPush,
+		arg.GithubRepoID,
+		arg.GithubUserID,
+		arg.Ref,
+		arg.BeforeSha,
+		arg.AfterSha,
+		arg.IsForced,
+		arg.IsCreated,
+		arg.HtmlUrl,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertPushCommit = `-- name: InsertPushCommit :exec
+INSERT INTO push_commits (
+    push_id,
+    commit_sha,
+    message,
+    added,
+    removed,
+    modified,
+    committed_at
+) VALUES (
+    $1::uuid,
+    $2::text,
+    $3::text,
+    $4::text[],
+    $5::text[],
+    $6::text[],
+    $7::timestamptz
+) ON CONFLICT (commit_sha) DO NOTHING
+`
+
+type InsertPushCommitParams struct {
+	PushID      pgtype.UUID
+	CommitSha   string
+	Message     string
+	Added       []string
+	Removed     []string
+	Modified    []string
+	CommittedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertPushCommit(ctx context.Context, arg InsertPushCommitParams) error {
+	_, err := q.db.Exec(ctx, insertPushCommit,
+		arg.PushID,
+		arg.CommitSha,
+		arg.Message,
+		arg.Added,
+		arg.Removed,
+		arg.Modified,
+		arg.CommittedAt,
+	)
+	return err
+}
+
 const insertRelease = `-- name: InsertRelease :exec
 INSERT INTO release_requests (
     id,
@@ -811,4 +837,21 @@ func (q *Queries) InsertRelease(ctx context.Context, arg InsertReleaseParams) er
 		arg.PublishedAt,
 	)
 	return err
+}
+
+const insertWebhookDeliveries = `-- name: InsertWebhookDeliveries :execrows
+INSERT INTO github_webhook_deliveries (
+    delivery_id
+)
+VALUES(
+    $1::uuid
+) ON CONFLICT (delivery_id) DO NOTHING
+`
+
+func (q *Queries) InsertWebhookDeliveries(ctx context.Context, deliveryID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, insertWebhookDeliveries, deliveryID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

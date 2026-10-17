@@ -1,3 +1,5 @@
+-- INSERT (EVERYTHING BELOW) --
+
 -- name: InsertGitHubUser :exec
 INSERT INTO github_user(
     user_id,
@@ -41,10 +43,11 @@ INSERT INTO github_user(
 
 -- name: InsertGitHubRepo :exec
 INSERT INTO github_repo (
-    github_id, 
-    repo_id, 
-    hook_id, 
-    name, 
+    github_id,
+    repo_id,
+    hook_id,
+    action,
+    name,
     description,
     readme,
     main_language,
@@ -59,12 +62,14 @@ INSERT INTO github_repo (
     is_archived,
     html_url,
     created_at,
-    pushed_at
+    pushed_at,
+    updated_at
 ) VALUES (
-    sqlc.arg('github_id')::bigint, 
-    sqlc.arg('repo_id')::bigint, 
-    sqlc.arg('hook_id')::bigint, 
-    sqlc.arg('name')::text, 
+    sqlc.arg('github_id')::bigint,
+    sqlc.arg('repo_id')::bigint,
+    sqlc.arg('hook_id')::bigint,
+    sqlc.narg('action')::text,
+    sqlc.arg('name')::text,
     sqlc.narg('description')::text,
     sqlc.narg('readme')::text,
     sqlc.narg('main_language')::text,
@@ -78,9 +83,11 @@ INSERT INTO github_repo (
     sqlc.arg('total_releases')::int,
     sqlc.arg('is_archived')::boolean,
     sqlc.arg('html_url')::text,
-    sqlc.arg('created_at')::timestamptz,
-    sqlc.narg('pushed_at')::timestamptz
+    COALESCE(sqlc.narg('created_at')::timestamptz, CURRENT_TIMESTAMP),
+    sqlc.narg('pushed_at')::timestamptz,
+    sqlc.narg('updated_at')::timestamptz
 ) ON CONFLICT (repo_id) DO UPDATE SET
+    action = EXCLUDED.action,
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     readme = EXCLUDED.readme,
@@ -95,7 +102,8 @@ INSERT INTO github_repo (
     total_releases = EXCLUDED.total_releases,
     is_archived = EXCLUDED.is_archived,
     html_url = EXCLUDED.html_url,
-    pushed_at = EXCLUDED.pushed_at;
+    pushed_at = EXCLUDED.pushed_at,
+    updated_at = EXCLUDED.updated_at;
 
 -- name: InsertGitHubLicense :exec
 INSERT INTO github_repo_license(
@@ -149,17 +157,17 @@ INSERT INTO pull_requests (
     sqlc.narg('action')::text,
     sqlc.narg('author_login')::text,
     sqlc.arg('title')::text,
-    sqlc.arg('body')::text,
+    sqlc.narg('body')::text,
     sqlc.arg('state')::text,
     sqlc.narg('labels')::text[],
     sqlc.arg('additions')::int,
     sqlc.arg('changed_files')::int,
     sqlc.arg('deletions')::int,
     sqlc.arg('number')::int,
-    sqlc.arg('participants_number')::int,
-    sqlc.arg('positive_reactions')::int,
-    sqlc.arg('negative_reactions')::int,
-    sqlc.arg('total_reactions')::int,
+    sqlc.narg('participants_number')::int,
+    sqlc.narg('positive_reactions')::int,
+    sqlc.narg('negative_reactions')::int,
+    sqlc.narg('total_reactions')::int,
     sqlc.arg('is_closed')::boolean,
     sqlc.arg('is_draft')::boolean,
     sqlc.arg('is_locked')::boolean,
@@ -227,8 +235,6 @@ INSERT INTO pull_request_comments (
     html_url = EXCLUDED.html_url,
     updated_at = EXCLUDED.updated_at,
     last_edited_at = EXCLUDED.last_edited_at;
-
-
 
 -- name: InsertIssue :exec
 INSERT INTO issue_requests (
@@ -381,24 +387,57 @@ INSERT INTO release_requests (
     updated_at = EXCLUDED.updated_at,
     published_at = EXCLUDED.published_at;
 
--- name: InsertGitHubWebhookDeliveries :execrows
-INSERT INTO github_repo_webhook_deliveries (
+-- name: InsertWebhookDeliveries :execrows
+INSERT INTO github_webhook_deliveries (
     delivery_id
 )
 VALUES(
     sqlc.arg('delivery_id')::uuid
 ) ON CONFLICT (delivery_id) DO NOTHING;
 
------ TO UPDATE (EVERYTHING BELOW)
-
--- name: InsertGitHubPushInfo :one
-INSERT INTO push_webhook(github_repo_id, github_user_id, hook_id, full_name, ref, before_sha, after_sha, head_commit_id, compare, forced, created, deleted)
-VALUES (
-    sqlc.arg('github_repo_id')::bigint, sqlc.arg('github_user_id')::bigint, sqlc.arg('hook_id')::bigint, sqlc.arg('full_name')::text, sqlc.arg('ref')::text, sqlc.narg('before_sha')::text, sqlc.narg('after_sha')::text, sqlc.narg('head_commit_id')::text, sqlc.arg('compare')::text, sqlc.arg('forced')::boolean, sqlc.arg('created')::boolean, sqlc.arg('deleted')::boolean
+-- name: InsertPush :one
+INSERT INTO push_requests (
+    github_repo_id,
+    github_user_id,
+    ref,
+    before_sha,
+    after_sha,
+    is_forced,
+    is_created,
+    html_url
+) VALUES (
+    sqlc.arg('github_repo_id')::bigint,
+    sqlc.arg('github_user_id')::bigint,
+    sqlc.arg('ref')::text,
+    sqlc.narg('before_sha')::text,
+    sqlc.narg('after_sha')::text,
+    sqlc.arg('is_forced')::boolean,
+    sqlc.arg('is_created')::boolean,
+    sqlc.arg('html_url')::text
 ) RETURNING id;
 
--- name: InsertGitHubPushCommitInfo :exec
-INSERT INTO github_repo_push_commit(push_id, commit_sha, message, added, removed, modified, url, committed_at)
-VALUES(
-    sqlc.arg('push_id')::uuid, sqlc.arg('commit_sha')::text, sqlc.arg('message')::text, sqlc.arg('added')::text[], sqlc.arg('removed')::text[], sqlc.arg('modified')::text[], sqlc.arg('url')::text, sqlc.arg('committed_at')::timestamptz
+-- name: InsertPushCommit :exec
+INSERT INTO push_commits (
+    push_id,
+    commit_sha,
+    message,
+    added,
+    removed,
+    modified,
+    committed_at
+) VALUES (
+    sqlc.arg('push_id')::uuid,
+    sqlc.arg('commit_sha')::text,
+    sqlc.arg('message')::text,
+    sqlc.arg('added')::text[],
+    sqlc.arg('removed')::text[],
+    sqlc.arg('modified')::text[],
+    sqlc.arg('committed_at')::timestamptz
+) ON CONFLICT (commit_sha) DO NOTHING;
+
+-- EXISTENCE CHECK (EVERYTHING BELOW) --
+
+-- name: ExistGitHubRepo :one
+SELECT EXISTS (
+    SELECT 1 FROM github_repo WHERE repo_id = sqlc.arg('repo_id')::bigint
 );

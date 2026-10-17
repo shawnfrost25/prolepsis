@@ -55,7 +55,7 @@ CREATE TABLE github_repo_license(
 
      ---------- GENERAL INFO TEXT ----------
      license_key TEXT NOT NULL,
-     CONSTRAINT github_license_license_key_pkey PRIMARY KEY (license_key),
+     CONSTRAINT github_repo_license_license_key_pkey PRIMARY KEY (license_key),
      name TEXT NOT NULL,
      body TEXT NOT NULL,
 
@@ -111,6 +111,7 @@ CREATE TABLE github_repo(
     CONSTRAINT github_repo_hook_id_key UNIQUE (hook_id),
 
     ---------- GENERAL INFO TEXT ----------
+    action TEXT,
     name TEXT NOT NULL,
     description TEXT,
     readme TEXT,
@@ -125,22 +126,23 @@ CREATE TABLE github_repo(
     stars INT NOT NULL DEFAULT 0,
     watches INT NOT NULL DEFAULT 0,
     forks_count INT NOT NULL DEFAULT 0,
-    total_releases INT NOT NULL,
-    
+    total_releases INT DEFAULT 0,
+
     ---------- GENERAL INFO BOOL ----------
     is_archived BOOLEAN NOT NULL,
-    
+
     ---------- URLs ----------
     html_url TEXT NOT NULL,
 
     ---------- GENERAL INFO TIME ----------
-    created_at TIMESTAMPTZ NOT NULL,
-    pushed_at TIMESTAMPTZ
+    created_at TIMESTAMPTZ,
+    pushed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
 );
 
-CREATE TABLE github_repo_webhook_deliveries(
+CREATE TABLE github_webhook_deliveries(
     delivery_id UUID NOT NULL,
-    CONSTRAINT github_repo_webhook_deliveries_delivery_id_pkey PRIMARY KEY (delivery_id)
+    CONSTRAINT github_webhook_deliveries_delivery_id_pkey PRIMARY KEY (delivery_id)
 );
 
 CREATE TABLE pull_requests(
@@ -156,7 +158,7 @@ CREATE TABLE pull_requests(
     action TEXT,
     author_login TEXT,
     title TEXT NOT NULL,
-    body TEXT NOT NULL,
+    body TEXT,
     state TEXT NOT NULL,
     labels TEXT[] DEFAULT '{}',
 
@@ -165,10 +167,10 @@ CREATE TABLE pull_requests(
    changed_files INT NOT NULL,
    deletions INT NOT NULL,
    number INT NOT NULL,
-   participants_number INT NOT NULL,
-   positive_reactions INT NOT NULL,
-   negative_reactions INT NOT NULL,
-   total_reactions INT NOT NULL,
+   participants_number INT,
+   positive_reactions INT,
+   negative_reactions INT,
+   total_reactions INT,
 
    ---------- GENERAL INFO BOOL ----------
    is_closed BOOLEAN NOT NULL,
@@ -221,7 +223,7 @@ CREATE TABLE issue_requests(
     CONSTRAINT issue_requests_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id),
     github_user_id BIGINT NOT NULL,
     CONSTRAINT issue_requests_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id),
-    
+
     ---------- GENERAL INFO TEXT ----------
     action TEXT,
     author_login TEXT,
@@ -242,6 +244,7 @@ CREATE TABLE issue_requests(
     ---------- GENERAL INFO BOOL ----------
     is_closed BOOLEAN NOT NULL,
     is_locked BOOLEAN NOT NULL,
+    is_transferred BOOLEAN DEFAULT false,
 
     ---------- URLs ----------
     html_url TEXT NOT NULL,
@@ -312,35 +315,52 @@ CREATE TABLE release_requests(
     published_at TIMESTAMPTZ
 );
 
-CREATE TABLE push_webhook(
+CREATE TABLE push_requests(
+    ---------- IDs ----------
     id UUID NOT NULL DEFAULT gen_random_uuid(),
-    CONSTRAINT github_repo_push_id PRIMARY KEY (id),
+    CONSTRAINT push_requests_id_pkey PRIMARY KEY (id),
     github_repo_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_push_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE,
+    CONSTRAINT push_requests_github_repo_id_fkey FOREIGN KEY (github_repo_id) REFERENCES github_repo(repo_id) ON DELETE CASCADE,
     github_user_id BIGINT NOT NULL,
-    CONSTRAINT github_repo_push_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id) ON DELETE CASCADE,
-    hook_id BIGINT NOT NULL,
-    full_name TEXT NOT NULL,
+    CONSTRAINT push_requests_github_user_id_fkey FOREIGN KEY (github_user_id) REFERENCES github_user(github_id) ON DELETE CASCADE,
+
+    ---------- GENERAL INFO TEXT ---------
     ref TEXT NOT NULL,
     before_sha TEXT,
     after_sha TEXT,
-    head_commit_id TEXT,
-    compare TEXT NOT NULL,
-    forced boolean NOT NULL DEFAULT false,
-    created boolean NOT NULL DEFAULT false,
-    deleted boolean NOT NULL DEFAULT false,
-    pushed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+    ---------- GENERAL INFO INT ---------
+
+    ---------- GENERAL INFO BOOL ---------
+    is_forced boolean NOT NULL DEFAULT false,
+    is_created boolean NOT NULL DEFAULT false,
+
+    ---------- URLs ---------
+    html_url TEXT NOT NULL,
+
+    ---------- GENERAL INFO TIME ---------
+    pushed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE github_repo_push_commit(
+CREATE TABLE push_commits(
+    ---------- IDs ----------
     push_id UUID NOT NULL,
-    CONSTRAINT github_repo_push_commit_push_id_fkey FOREIGN KEY (push_id) REFERENCES push_webhook(id) ON DELETE CASCADE,
+    CONSTRAINT push_commits_push_id_fkey FOREIGN KEY (push_id) REFERENCES push_requests(id) ON DELETE CASCADE,
+
+    ---------- GENERAL INFO TEXT ---------
     commit_sha TEXT NOT NULL,
-    CONSTRAINT github_repo_push_commit_commit_sha_pkey PRIMARY KEY (commit_sha),
+    CONSTRAINT push_commits_commit_sha_pkey PRIMARY KEY (commit_sha),
     message TEXT NOT NULL,
     added TEXT[] DEFAULT '{}',
     removed TEXT[] DEFAULT '{}',
     modified TEXT[] DEFAULT '{}',
-    url TEXT NOT NULL,
+
+    ---------- GENERAL INFO INT ---------
+
+    ---------- GENERAL INFO BOOL ---------
+
+    ---------- URLs ---------
+
+    ---------- GENERAL INFO TIME ---------
     committed_at TIMESTAMPTZ NOT NULL
 );

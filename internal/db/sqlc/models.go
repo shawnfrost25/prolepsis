@@ -59,6 +59,7 @@ type GithubRepo struct {
 	GithubID           int64
 	RepoID             int64
 	HookID             *int64
+	Action             *string
 	Name               string
 	Description        *string
 	Readme             *string
@@ -70,11 +71,12 @@ type GithubRepo struct {
 	Stars              int32
 	Watches            int32
 	ForksCount         int32
-	TotalReleases      int32
+	TotalReleases      *int32
 	IsArchived         bool
 	HtmlUrl            string
 	CreatedAt          pgtype.Timestamptz
 	PushedAt           pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type GithubRepoLicense struct {
@@ -84,21 +86,6 @@ type GithubRepoLicense struct {
 	Name       string
 	Body       string
 	HtmlUrl    *string
-}
-
-type GithubRepoPushCommit struct {
-	PushID      pgtype.UUID
-	CommitSha   string
-	Message     string
-	Added       []string
-	Removed     []string
-	Modified    []string
-	Url         string
-	CommittedAt pgtype.Timestamptz
-}
-
-type GithubRepoWebhookDelivery struct {
-	DeliveryID pgtype.UUID
 }
 
 type GithubUser struct {
@@ -115,6 +102,10 @@ type GithubUser struct {
 	AvatarUrl     string
 	HtmlUrl       string
 	CreatedAt     pgtype.Timestamptz
+}
+
+type GithubWebhookDelivery struct {
+	DeliveryID pgtype.UUID
 }
 
 type IssueComment struct {
@@ -150,6 +141,7 @@ type IssueRequest struct {
 	TotalReactions     int32
 	IsClosed           bool
 	IsLocked           bool
+	IsTransferred      *bool
 	HtmlUrl            string
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
@@ -173,17 +165,17 @@ type PullRequest struct {
 	Action             *string
 	AuthorLogin        *string
 	Title              string
-	Body               string
+	Body               *string
 	State              string
 	Labels             []string
 	Additions          int32
 	ChangedFiles       int32
 	Deletions          int32
 	Number             int32
-	ParticipantsNumber int32
-	PositiveReactions  int32
-	NegativeReactions  int32
-	TotalReactions     int32
+	ParticipantsNumber *int32
+	PositiveReactions  *int32
+	NegativeReactions  *int32
+	TotalReactions     *int32
 	IsClosed           bool
 	IsDraft            bool
 	IsLocked           bool
@@ -209,20 +201,26 @@ type PullRequestComment struct {
 	LastEditedAt    pgtype.Timestamptz
 }
 
-type PushWebhook struct {
+type PushCommit struct {
+	PushID      pgtype.UUID
+	CommitSha   string
+	Message     string
+	Added       []string
+	Removed     []string
+	Modified    []string
+	CommittedAt pgtype.Timestamptz
+}
+
+type PushRequest struct {
 	ID           pgtype.UUID
 	GithubRepoID int64
 	GithubUserID int64
-	HookID       int64
-	FullName     string
 	Ref          string
 	BeforeSha    *string
 	AfterSha     *string
-	HeadCommitID *string
-	Compare      string
-	Forced       bool
-	Created      bool
-	Deleted      bool
+	IsForced     bool
+	IsCreated    bool
+	HtmlUrl      string
 	PushedAt     pgtype.Timestamptz
 }
 

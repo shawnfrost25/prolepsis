@@ -28,7 +28,7 @@ CREATE TABLE "public"."push_webhook" (
   "created" boolean NOT NULL DEFAULT false,
   "deleted" boolean NOT NULL DEFAULT false,
   "pushed_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "github_repo_push_id" PRIMARY KEY ("id"),
+  CONSTRAINT "push_requests_id_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "github_repo_push_github_repo_id_fkey" FOREIGN KEY ("github_repo_id") REFERENCES "public"."github_repo" ("repo_id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "github_repo_push_github_user_id_fkey" FOREIGN KEY ("github_user_id") REFERENCES "public"."github_user" ("github_id") ON UPDATE NO ACTION ON DELETE CASCADE
 );
