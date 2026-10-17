@@ -680,8 +680,7 @@ INSERT INTO push_requests (
     before_sha,
     after_sha,
     is_forced,
-    is_created,
-    html_url
+    is_created
 ) VALUES (
     $1::bigint,
     $2::bigint,
@@ -689,8 +688,7 @@ INSERT INTO push_requests (
     $4::text,
     $5::text,
     $6::boolean,
-    $7::boolean,
-    $8::text
+    $7::boolean
 ) RETURNING id
 `
 
@@ -702,7 +700,6 @@ type InsertPushParams struct {
 	AfterSha     *string
 	IsForced     bool
 	IsCreated    bool
-	HtmlUrl      string
 }
 
 func (q *Queries) InsertPush(ctx context.Context, arg InsertPushParams) (pgtype.UUID, error) {
@@ -714,7 +711,6 @@ func (q *Queries) InsertPush(ctx context.Context, arg InsertPushParams) (pgtype.
 		arg.AfterSha,
 		arg.IsForced,
 		arg.IsCreated,
-		arg.HtmlUrl,
 	)
 	var id pgtype.UUID
 	err := row.Scan(&id)

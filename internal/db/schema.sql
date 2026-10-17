@@ -333,7 +333,6 @@ CREATE TABLE push_requests(
     is_created boolean NOT NULL DEFAULT false,
 
     ---------- URLs ---------
-    html_url TEXT NOT NULL,
 
     ---------- GENERAL INFO TIME ---------
     pushed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

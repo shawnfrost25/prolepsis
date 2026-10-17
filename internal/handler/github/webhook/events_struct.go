@@ -144,17 +144,12 @@ type IssueCommentsWebhook struct {
 // ==============================
 
 type GitHubPush struct {
-	RepoInfo     Repository `json:"repository"`
-	Ref          string     `json:"ref"`
-	BeforeSHA    string     `json:"before"`
-	AfterSHA     string     `json:"after"`
-	HeadCommitID *struct {
-		SHA string `json:"id"`
-	} `json:"head_commit,omitempty"`
-	Compare    string `json:"compare"`
-	Forced     bool   `json:"forced"`
-	Created    bool   `json:"created"`
-	Deleted    bool   `json:"deleted"`
+	RepoInfo   Repository `json:"repository"`
+	Ref        string     `json:"ref"`
+	BeforeSHA  string     `json:"before"`
+	AfterSHA   string     `json:"after"`
+	Forced     bool       `json:"forced"`
+	Created    bool       `json:"created"`
 	CommitInfo []struct {
 		CommitSha   string    `json:"id"`
 		Message     string    `json:"message"`

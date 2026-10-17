@@ -394,8 +394,7 @@ INSERT INTO push_requests (
     before_sha,
     after_sha,
     is_forced,
-    is_created,
-    html_url
+    is_created
 ) VALUES (
     sqlc.arg('github_repo_id')::bigint,
     sqlc.arg('github_user_id')::bigint,
@@ -403,8 +402,7 @@ INSERT INTO push_requests (
     sqlc.narg('before_sha')::text,
     sqlc.narg('after_sha')::text,
     sqlc.arg('is_forced')::boolean,
-    sqlc.arg('is_created')::boolean,
-    sqlc.arg('html_url')::text
+    sqlc.arg('is_created')::boolean
 ) RETURNING id;
 
 -- name: InsertPushCommit :exec

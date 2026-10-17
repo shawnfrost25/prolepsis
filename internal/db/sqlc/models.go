@@ -217,7 +217,6 @@ type PushRequest struct {
 	AfterSha     *string
 	IsForced     bool
 	IsCreated    bool
-	HtmlUrl      string
 	PushedAt     pgtype.Timestamptz
 }
 

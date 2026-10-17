@@ -8,17 +8,15 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
-	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
+func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -28,18 +26,38 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	var pgErr *pgconn.PgError
+
+	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
+			return
+		}
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
+			return
+		}
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
+		return
+	}
+	if insertedRows == 0 {
+		logger.Debug().
+			Int("status", http.StatusOK).
+			Str("code", "delivery_id_deduplication").
+			Msg("delivery id already exists")
+		lib.Pretty(w, http.StatusOK, nil)
+	}
+
 	var req GitHubPush
-	err := sonic.Unmarshal(body, &req)
+	err = sonic.Unmarshal(body, &req)
 	if err != nil {
 		errlog.ParsingError(logger, "push_format", w, trace, err)
 		return
-	}
-
-	var headCommitSHA *string
-	if req.HeadCommitID != nil {
-		headCommitSHA = &req.HeadCommitID.SHA
-	} else {
-		headCommitSHA = nil
 	}
 
 	const zeroSHA = "0000000000000000000000000000000000000000"
@@ -51,74 +69,37 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		return sha
 	}
 
-	repoIDStr := strconv.FormatInt(req.RepoInfo.ID, 10)
-	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "hook_id", w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
-		return
-	}
-
-	if hookIDStr == "" {
-		errlog.EmptyValueError(logger, "hook_id", w, trace)
-		return
-	}
-
-	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
-	if err != nil {
-		errlog.ParsingError(logger, "hook_id", w, trace, err)
-		return
-	}
-
-	var pgErr *pgconn.PgError
-
-	pushID, err := h.Queries.InsertGitHubPushInfo(timeout, db.InsertGitHubPushInfoParams{
+	pushID, err := h.Queries.InsertPush(timeout, db.InsertPushParams{
 		GithubRepoID: req.RepoInfo.ID,
-		GithubUserID: req.RepoInfo.OwnerID.ID,
-		HookID:       hookID,
-		FullName:     req.RepoInfo.FullName,
+		GithubUserID: req.RepoInfo.Owner.ID,
 		Ref:          req.Ref,
 		BeforeSha:    isZero(&req.BeforeSHA),
 		AfterSha:     isZero(&req.AfterSHA),
-		HeadCommitID: headCommitSHA,
-		Compare:      req.Compare,
-		Forced:       req.Forced,
-		Created:      req.Created,
-		Deleted:      req.Deleted,
+		IsForced:     req.Forced,
+		IsCreated:    req.Created,
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "push_info_insert", w, trace, err)
+			errlog.DeadlineExceededError(logger, "push_insert", w, trace, err)
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
 			errlog.ErrConnClosed(logger, w, trace, err)
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "push_info_insert_failed", pgErr, err)
+			errlog.PgConnError(logger, w, trace, "push_insert_failed", pgErr, err)
 		}
-		errlog.UnexpectedError(logger, "push_info_insert", w, trace, err)
+		errlog.UnexpectedError(logger, "push_insert", w, trace, err)
 		return
 	}
 
 	for _, commit := range req.CommitInfo {
-		err := h.Queries.InsertGitHubPushCommitInfo(timeout, db.InsertGitHubPushCommitInfoParams{
+		err := h.Queries.InsertPushCommit(timeout, db.InsertPushCommitParams{
 			PushID:      pushID,
 			CommitSha:   commit.CommitSha,
 			Message:     commit.Message,
 			Added:       commit.Added,
 			Removed:     commit.Removed,
 			Modified:    commit.Modified,
-			Url:         commit.URL,
 			CommittedAt: pgtype.Timestamptz{Time: commit.CommittedAt, Valid: true},
 		})
 		if err != nil {
@@ -139,7 +120,6 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		logger.Debug().
 			Str("commit_sha", commit.CommitSha).
 			Str("push_id", pushID.String()).
-			Str("full_name", req.RepoInfo.FullName).
 			Msg("successfully inserted commit")
 	}
 
