@@ -4,13 +4,12 @@ import (
 	"context"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
-	"prolepsis/internal/handler/github/webhook"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
 
-func PullRequestCallback(logger zerolog.Logger, pullRequest webhook.PullRequestNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
+func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "pull_request").Logger()
 	pullRequestId, err, code := ParseId(pullRequest.FullDatabaseId)
 	if err != nil {
@@ -62,23 +61,30 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest webhook.PullRequestN
 		if pullRequest.MergedAt != nil {
 			mergedAt = pgtype.Timestamptz{Time: *pullRequest.MergedAt, Valid: true}
 		}
+		var body *string
+		if pullRequest.Body != "" {
+			body = &pullRequest.Body
+		}
+		parseInt := func(number int32) *int32 {
+			return &number
+		}
 		err := queries.InsertPullRequest(ctx, db.InsertPullRequestParams{
 			ID:                 pullRequestId,
 			GithubRepoID:       githubRepoId,
 			GithubUserID:       githubUserId,
 			AuthorLogin:        authorLogin,
 			Title:              pullRequest.Title,
-			Body:               pullRequest.Body,
+			Body:               body,
 			State:              pullRequest.State,
 			Labels:             labels,
 			Additions:          int32(pullRequest.Additions),
 			ChangedFiles:       int32(pullRequest.ChangedFiles),
 			Deletions:          int32(pullRequest.Deletions),
 			Number:             int32(pullRequest.Number),
-			ParticipantsNumber: int32(pullRequest.Participants.TotalCount),
-			PositiveReactions:  int32(positiveReactions),
-			NegativeReactions:  int32(negativeReactions),
-			TotalReactions:     int32(totalCount),
+			ParticipantsNumber: parseInt(int32(pullRequest.Participants.TotalCount)),
+			PositiveReactions:  parseInt(int32(positiveReactions)),
+			NegativeReactions:  parseInt(int32(negativeReactions)),
+			TotalReactions:     parseInt(int32(totalCount)),
 			IsClosed:           pullRequest.IsClosed,
 			IsDraft:            pullRequest.IsDraft,
 			IsLocked:           pullRequest.IsLocked,

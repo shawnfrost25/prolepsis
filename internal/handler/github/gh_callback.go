@@ -12,7 +12,6 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
 	synchelper "prolepsis/internal/handler/github/sync_helper"
-	"prolepsis/internal/handler/github/webhook"
 	"prolepsis/internal/lib"
 	"strconv"
 	"sync"
@@ -345,7 +344,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var graph *webhook.User
+	var graph *synchelper.User
 	err = sonic.ConfigDefault.NewDecoder(respGraphQl.Body).Decode(&graph)
 	if err != nil {
 		errlog.ParsingError(logger, "graph_decode_format", w, u.Trace, err)

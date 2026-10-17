@@ -2,15 +2,13 @@ package synchelper
 
 import (
 	"context"
-	"net/http"
-	db "prolepsis/internal/db/sqlc"
-	"prolepsis/internal/handler/github/webhook"
-
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
+	"net/http"
+	db "prolepsis/internal/db/sqlc"
 )
 
-func ReleaseCallback(logger zerolog.Logger, release webhook.ReleaseNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
+func ReleaseCallback(logger zerolog.Logger, release ReleaseNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "releases").Logger()
 	if release.DatabaseId == nil {
 		logger = logger.With().Str("release_name", release.TagName).Int("release_id", *release.DatabaseId).Logger()

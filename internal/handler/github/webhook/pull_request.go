@@ -8,17 +8,16 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
+func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "pull_request").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -28,74 +27,12 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var req GitHubPullRequest
-	err := sonic.Unmarshal(body, &req)
-	if err != nil {
-		errlog.ParsingError(logger, "pull_request_format", w, trace, err)
-		return
-	}
-
-	repoIDStr := strconv.FormatInt(req.RepoInfo.ID, 10)
-	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "hook_id", w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
-		return
-	}
-
-	if hookIDStr == "" {
-		errlog.EmptyValueError(logger, "hook_id", w, trace)
-		return
-	}
-
-	if req.PRInfo.State != "open" && req.PRInfo.State != "closed" {
-		errlog.InvalidError(logger, "pull_request_state", w, trace)
-		return
-	}
-
-	auth := req.PRInfo.Auth
-
-	var authID *int64
-	if auth != nil {
-		authID = &auth.ID
-	}
-
-	var authName *string
-	if auth != nil {
-		authName = &auth.Login
-	}
-
-	var authType *string
-	if auth != nil {
-		authType = &auth.Type
-	}
-
 	var pgErr *pgconn.PgError
 
-	err = h.Queries.InsertGitHubPullRequestInfo(timeout, db.InsertGitHubPullRequestInfoParams{
-		ID:         req.PRInfo.ID,
-		Number:     int32(req.PRInfo.Number),
-		Title:      req.PRInfo.Title,
-		State:      req.PRInfo.State,
-		IsDraft:    req.PRInfo.IsDraft,
-		IsMerged:   req.PRInfo.IsMerged,
-		AuthorID:   authID,
-		AuthorName: authName,
-		AuthorType: authType,
-	})
+	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "pull_request_info_insert", w, trace, err)
+			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
 			return
 		}
 		if errors.Is(err, pgconn.ErrConnClosed) {
@@ -103,58 +40,81 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "pull_request_info_insert_failed", pgErr, err)
+			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "pull_request_info_insert", w, trace, err)
+		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
+		return
+	}
+	if insertedRows == 0 {
+		logger.Debug().
+			Int("status", http.StatusOK).
+			Str("code", "delivery_id_deduplication").
+			Msg("delivery id already exists")
+		lib.Pretty(w, http.StatusOK, nil)
+	}
+
+	var req PullRequestWebhook
+	err = sonic.Unmarshal(body, &req)
+	if err != nil {
+		errlog.ParsingError(logger, "pull_request_format", w, trace, err)
 		return
 	}
 
-	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
-	if err != nil {
-		errlog.ParsingError(logger, "hook_id", w, trace, err)
+	closed := req.PullRequest.ClosedAt != nil
+
+	if strings.ToLower(req.PullRequest.State) != "open" && strings.ToLower(req.PullRequest.State) != "closed" {
+		errlog.InvalidError(logger, "pull_request_state", w, trace)
 		return
+	}
+
+	var authLogin *string
+	if req.PullRequest.Author != nil {
+		authLogin = &req.PullRequest.Author.Login
 	}
 
 	var closedAt pgtype.Timestamptz
-	if req.TimeStamp.ClosedAt != nil {
-		closedAt = pgtype.Timestamptz{Time: *req.TimeStamp.ClosedAt, Valid: true}
+	if req.PullRequest.ClosedAt != nil {
+		closedAt = pgtype.Timestamptz{Time: *req.PullRequest.ClosedAt, Valid: true}
 	}
 
 	var mergedAt pgtype.Timestamptz
-	if req.TimeStamp.MergedAt != nil {
-		mergedAt = pgtype.Timestamptz{Time: *req.TimeStamp.MergedAt, Valid: true}
+	if req.PullRequest.MergedAt != nil {
+		mergedAt = pgtype.Timestamptz{Time: *req.PullRequest.MergedAt, Valid: true}
 	}
 
-	err = h.Queries.InsertGitHubPullRequest(timeout, db.InsertGitHubPullRequestParams{
-		GithubRepoID:         req.RepoInfo.ID,
-		GithubUserID:         req.RepoInfo.OwnerID.ID,
-		HookID:               hookID,
-		EventAction:          req.EventAction,
-		FullName:             req.RepoInfo.FullName,
-		SenderID:             req.SentBy.ID,
-		SenderName:           req.SentBy.Login,
-		SenderType:           req.SentBy.Type,
-		PullRequestID:        req.PRInfo.ID,
-		CreatedAt:            pgtype.Timestamptz{Time: req.TimeStamp.CreatedAt, Valid: true},
-		UpdatedAt:            pgtype.Timestamptz{Time: req.TimeStamp.UpdatedAt, Valid: true},
-		ClosedAt:             closedAt,
-		MergedAt:             mergedAt,
-		Additions:            int32(req.Metrics.Additions),
-		Deletions:            int32(req.Metrics.Deletions),
-		ChangedFiles:         int32(req.Metrics.ChangedFiles),
-		CommitsCount:         int32(req.Metrics.CommitsCount),
-		CommentsCount:        int32(req.Metrics.CommentsCount),
-		ReviewCommentsCount:  int32(req.Metrics.ReviewCommentsCount),
-		HeadBranch:           req.GitInfo.HeadBranch,
-		HeadSha:              req.GitInfo.HeadBranch,
-		BaseBranch:           req.GitInfo.BaseBranch,
-		MergeCommitSha:       req.GitInfo.MergeCommitSha,
-		AssigneeIds:          req.Workflow.AssigneeIDs,
-		RequestedReviewerIds: req.Workflow.RequestedReviewerIDs,
-		RequestedTeamIds:     req.Workflow.RequestedTeamIDs,
-		Labels:               req.Workflow.Labels,
-		MilestoneID:          req.Workflow.MilestoneID,
+	var labels []string
+	if len(req.PullRequest.Labels) != 0 {
+		for _, label := range req.PullRequest.Labels {
+			if label.Name == "" {
+				continue
+			}
+			labels = append(labels, label.Name)
+		}
+	}
+
+	err = h.Queries.InsertPullRequest(timeout, db.InsertPullRequestParams{
+		GithubRepoID: req.Repository.ID,
+		GithubUserID: req.Repository.Owner.ID,
+		Action:       &req.Action,
+		AuthorLogin:  authLogin,
+		Title:        req.PullRequest.Title,
+		Body:         req.PullRequest.Body,
+		State:        req.PullRequest.State,
+		Labels:       labels,
+		Additions:    int32(req.PullRequest.Additions),
+		ChangedFiles: int32(req.PullRequest.ChangedFiles),
+		Deletions:    int32(req.PullRequest.Deletions),
+		Number:       int32(req.PullRequest.Number),
+		IsClosed:     closed,
+		IsDraft:      req.PullRequest.IsDraft,
+		IsLocked:     req.PullRequest.IsLocked,
+		IsMerged:     req.PullRequest.IsMerged,
+		HtmlUrl:      req.PullRequest.HtmlUrl,
+		CreatedAt:    pgtype.Timestamptz{Time: req.PullRequest.CreatedAt},
+		UpdatedAt:    pgtype.Timestamptz{Time: req.PullRequest.UpdatedAt},
+		ClosedAt:     closedAt,
+		MergedAt:     mergedAt,
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {

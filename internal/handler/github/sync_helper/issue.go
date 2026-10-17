@@ -4,13 +4,12 @@ import (
 	"context"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
-	"prolepsis/internal/handler/github/webhook"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
 
-func IssueCallback(logger zerolog.Logger, issue webhook.IssueNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
+func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "issues").Logger()
 	issueId, err, code := ParseId(issue.FullDatabaseId)
 	if err != nil {
