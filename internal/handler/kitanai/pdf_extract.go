@@ -34,7 +34,7 @@ func (h *Handler) ExtractPdf(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		if errors.Is(err, http.ErrMissingFile) {
-			errlog.EmptyValueError(logger, "file", w, u.Trace)
+			errlog.NotFoundError(logger, "file", w, u.Trace, err)
 			return
 		}
 		errlog.UnexpectedError(logger, "file_fetch", w, u.Trace, err)

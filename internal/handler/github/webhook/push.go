@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
@@ -53,10 +54,20 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		lib.Pretty(w, http.StatusOK, nil)
 	}
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var req GitHubPush
 	err = sonic.Unmarshal(body, &req)
 	if err != nil {
-		errlog.ParsingError(logger, "push_format", w, trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "push_payload", w, trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
+		}
+		errlog.ParsingError(logger, "push_payload", w, trace, err)
 		return
 	}
 

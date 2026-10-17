@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
@@ -26,10 +27,20 @@ func (h WebhookHandler) WebhookRelease(w http.ResponseWriter, r *http.Request, b
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var req ReleasesWebhook
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		errlog.ParsingError(logger, "releases_format", w, trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "releases_payload", w, trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
+		}
+		errlog.ParsingError(logger, "releases_payload", w, trace, err)
 		return
 	}
 

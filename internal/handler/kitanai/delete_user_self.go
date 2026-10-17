@@ -2,6 +2,7 @@ package kitanai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -96,10 +97,21 @@ func (h *Handler) DeleteUserSelf(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var req DeleteRequestSelf
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.ParsingError(logger, "self_delete", w, u.Trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "self_delete_payload", w, u.Trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
+			return
+		}
+		errlog.ParsingError(logger, "self_delete_payload", w, u.Trace, err)
 		return
 	}
 

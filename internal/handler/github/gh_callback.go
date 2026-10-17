@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -341,10 +342,21 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var graph *synchelper.User
 	err = sonic.ConfigDefault.NewDecoder(respGraphQl.Body).Decode(&graph)
 	if err != nil {
-		errlog.ParsingError(logger, "graph_decode_format", w, u.Trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "graph_decode_payload", w, u.Trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
+			return
+		}
+		errlog.ParsingError(logger, "graph_decode_payload", w, u.Trace, err)
 		return
 	}
 
@@ -636,34 +648,22 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			respWeb, err := h.HTTP_Client.Do(reqW)
 			if err != nil {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_request_send_failed").
-					Msg("failed to send webhook request")
-
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Failed to send webhook request",
-					TraceID: u.Trace,
-				})
+				errlog.UnexpectedError(logger, "webhook_request", w, u.Trace, err)
 				return
 			}
 
 			var reqWeb WebhookResponse
 			err = sonic.ConfigDefault.NewDecoder(respWeb.Body).Decode(&reqWeb)
 			if err != nil {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_response_decode_failed").
-					Msg("failed to decode webhook response")
-
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Failed to decode webhook response",
-					TraceID: u.Trace,
-				})
+				if errors.As(err, &synErr) {
+					errlog.JsonSyntaxError(logger, "webhook_request_payload", w, u.Trace, synErr)
+					return
+				}
+				if errors.As(err, &typeErr) {
+					errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
+					return
+				}
+				errlog.ParsingError(logger, "webhook_request_payload", w, u.Trace, err)
 				return
 			}
 

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -43,10 +44,21 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var req webhook.Repository
 	err = sonic.Unmarshal(bodyBytes, &req)
 	if err != nil {
-		errlog.ParsingError(logger, "webhook_format", w, trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "webhook_payload", w, trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
+			return
+		}
+		errlog.ParsingError(logger, "webhook_payload", w, trace, err)
 		return
 	}
 

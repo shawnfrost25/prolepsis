@@ -2,6 +2,7 @@ package kitanai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -42,8 +43,20 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
 		return
 	}
+
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "create_payload", w, trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
+			return
+		}
 		errlog.ParsingError(logger, "create_payload", w, trace, err)
 		return
 	}

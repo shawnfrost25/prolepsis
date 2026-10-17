@@ -2,6 +2,7 @@ package kitanai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
@@ -27,15 +28,27 @@ func (h *Handler) UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	var req UpdateRequest
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.ParsingError(logger, "update", w, u.Trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "user_update_payload", w, u.Trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
+			return
+		}
+		errlog.ParsingError(logger, "user_update_payload", w, u.Trace, err)
 		return
 	}
 
 	if req.Bio == nil && req.DisplayName == nil && req.Location == nil {
-		errlog.EmptyValueError(logger, "update_payload", w, u.Trace)
+		errlog.EmptyValueError(logger, "user_update_payload", w, u.Trace)
 		return
 	}
 

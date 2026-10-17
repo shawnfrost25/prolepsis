@@ -2,6 +2,7 @@ package kitanai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
@@ -36,9 +37,20 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var synErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errlog.ParsingError(logger, "login", w, trace, err)
+		if errors.As(err, &synErr) {
+			errlog.JsonSyntaxError(logger, "login_payload", w, trace, synErr)
+			return
+		}
+		if errors.As(err, &typeErr) {
+			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
+			return
+		}
+		errlog.ParsingError(logger, "login_payload", w, trace, err)
 		return
 	}
 
