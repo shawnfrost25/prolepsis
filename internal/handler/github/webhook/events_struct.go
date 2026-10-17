@@ -106,11 +106,11 @@ type ReleasesWebhook struct {
 		Author    *struct {
 			Login string `json:"login"`
 		} `json:"author"`
-		TagName       string  `json:"tag_name"`
-		IsImmutable   bool    `json:"immutable"`
-		IsPrereleased bool    `json:"prerelease"`
-		PublishedAt   *string `json:"published_at"`
-		Description   *string `json:"body"`
+		TagName       string     `json:"tag_name"`
+		IsImmutable   bool       `json:"immutable"`
+		IsPrereleased bool       `json:"prerelease"`
+		PublishedAt   *time.Time `json:"published_at"`
+		Description   *string    `json:"body"`
 	} `json:"release"`
 	Repository Repository `json:"repository"`
 }

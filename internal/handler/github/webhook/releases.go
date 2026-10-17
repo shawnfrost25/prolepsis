@@ -8,17 +8,15 @@ import (
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
 	"prolepsis/internal/lib"
-	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, body []byte, deliveryID string) {
+func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, body []byte, deliveryID pgtype.UUID) {
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "releases").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
@@ -28,40 +26,53 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var req GitHubReleases
+	var req ReleasesWebhook
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
 		errlog.ParsingError(logger, "releases_format", w, trace, err)
 		return
 	}
 
-	repoIDStr := strconv.FormatInt(req.Repository.ID, 10)
-	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
+	var pgErr *pgconn.PgError
+
+	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "hook_id_fetch", w, trace, err)
+			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
 			return
 		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "hook_id", w, trace, err)
+		if errors.Is(err, pgconn.ErrConnClosed) {
+			errlog.ErrConnClosed(logger, w, trace, err)
 			return
 		}
-		errlog.UnexpectedError(logger, "hook_id_fetch", w, trace, err)
+		if errors.As(err, &pgErr) {
+			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
+			return
+		}
+		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
 		return
 	}
-
-	if hookIDStr == "" {
-		errlog.EmptyValueError(logger, "hook_id", w, trace)
-		return
+	if insertedRows == 0 {
+		logger.Debug().
+			Int("status", http.StatusOK).
+			Str("code", "delivery_id_deduplication").
+			Msg("delivery id already exists")
+		lib.Pretty(w, http.StatusOK, nil)
 	}
 
-	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
-	if err != nil {
-		errlog.ParsingError(logger, "hook_id", w, trace, err)
-		return
+	var authorLogin *string
+	if req.Release.Author != nil {
+		authorLogin = &req.Release.Author.Login
+	}
+
+	var createdAt pgtype.Timestamptz
+	if req.Release.CreatedAt != nil {
+		createdAt = pgtype.Timestamptz{Time: *req.Release.CreatedAt, Valid: true}
+	}
+
+	var updatedAt pgtype.Timestamptz
+	if req.Release.UpdatedAt != nil {
+		updatedAt = pgtype.Timestamptz{Time: *req.Release.UpdatedAt, Valid: true}
 	}
 
 	var publishedAt pgtype.Timestamptz
@@ -69,24 +80,22 @@ func (h WebhookHandler) WebhookReleases(w http.ResponseWriter, r *http.Request, 
 		publishedAt = pgtype.Timestamptz{Time: *req.Release.PublishedAt, Valid: true}
 	}
 
-	var pgErr *pgconn.PgError
-
-	err = h.Queries.InsertGitHubReleases(timeout, db.InsertGitHubReleasesParams{
-		GithubRepoID:    req.Repository.ID,
-		GithubUserID:    req.Repository.OwnerID.ID,
-		ReleasesID:      req.Release.ID,
-		HookID:          hookID,
-		Action:          req.Action,
-		TagName:         req.Release.TagName,
-		Name:            req.Release.Name,
-		Body:            req.Release.Body,
-		TargetCommitish: req.Release.TargetCommitish,
-		Draft:           req.Release.Draft,
-		Prerelease:      req.Release.Prerelease,
-		PublishedAt:     publishedAt,
-		SenderID:        req.Sender.ID,
-		SenderName:      req.Sender.Login,
-		SenderType:      req.Sender.Type,
+	err = h.Queries.InsertRelease(timeout, db.InsertReleaseParams{
+		ID:            req.Release.Id,
+		GithubRepoID:  req.Repository.ID,
+		GithubUserID:  req.Repository.Owner.ID,
+		Action:        &req.Action,
+		AuthorLogin:   authorLogin,
+		Name:          req.Release.Name,
+		TagName:       req.Release.TagName,
+		Description:   req.Release.Description,
+		IsDraft:       req.Release.IsDraft,
+		IsPrereleased: req.Release.IsPrereleased,
+		IsImmutable:   req.Release.IsImmutable,
+		HtmlUrl:       req.Release.HtmlUrl,
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
+		PublishedAt:   publishedAt,
 	})
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
