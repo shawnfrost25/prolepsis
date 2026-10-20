@@ -116,6 +116,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				errlog.DeadlineExceededError(logger, "push_commit_insert", w, trace, err)
+				return
 			}
 			if errors.Is(err, pgconn.ErrConnClosed) {
 				errlog.ErrConnClosed(logger, w, trace, err)
@@ -123,6 +124,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 			}
 			if errors.As(err, &pgErr) {
 				errlog.PgConnError(logger, w, trace, "push_commit_insert_failed", pgErr, err)
+				return
 			}
 			errlog.UnexpectedError(logger, "push_commit_insert", w, trace, err)
 			return
