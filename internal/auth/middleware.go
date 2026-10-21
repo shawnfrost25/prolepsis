@@ -9,6 +9,7 @@ import (
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"strings"
 	"time"
@@ -337,37 +338,49 @@ func FetchContextInsideHandler(w http.ResponseWriter, r *http.Request) (RequestC
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "fetch_context").Logger()
 	trace, ok := GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("middleware.http.trace.context.fetch", err)
+		errlog.Http(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
 	id, ok := GetID(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "id_context", w, trace)
+		err := failure.EmptyValue("id_context")
+		err = failure.Wrap("middleware.http.id.context.fetch", err)
+		errlog.Http(logger, w, "id_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
 	role, ok := GetRole(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "role_context", w, trace)
+		err := failure.EmptyValue("role_context")
+		err = failure.Wrap("middleware.http.role.context.fetch", err)
+		errlog.Http(logger, w, "role_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
 	ip, ok := GetIP(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "ip_context", w, trace)
+		err := failure.EmptyValue("ip_context")
+		err = failure.Wrap("middleware.http.ip.context.fetch", err)
+		errlog.Http(logger, w, "ip_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
 	path, ok := GetPath(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "path_context", w, trace)
+		err := failure.EmptyValue("path_context")
+		err = failure.Wrap("middleware.http.path.context.fetch", err)
+		errlog.Http(logger, w, "path_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
 	method, ok := GetMethod(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "method_context", w, trace)
+		err := failure.EmptyValue("method_context")
+		err = failure.Wrap("middleware.http.method.context.fetch", err)
+		errlog.Http(logger, w, "method_context", failure.InternalEmptyValueError, err, trace)
 		return RequestContext{}, false
 	}
 
