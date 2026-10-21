@@ -2,18 +2,14 @@ package kitanai
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,24 +29,16 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "login_user").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("kitanai.http.trace.context.fetch", err)
+		errlog.Http(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "login_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-			return
-		}
-		errlog.ParsingError(logger, "login_payload", w, trace, err)
+		err = failure.Wrap("kitanai.json.login.payload.decode", err)
+		errlog.Json(logger, w, "user_login", trace, err)
 		return
 	}
 
@@ -62,55 +50,33 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		if req.Email != "" && req.Password == "" {
 			missing = "password_argument"
 		}
-		errlog.EmptyValueError(logger, missing, w, trace)
+		err = failure.EmptyValue(missing)
+		err = failure.Wrap("kitanai.http.login.payload.existence_check", err)
+		errlog.Http(logger, w, missing, failure.EmptyValueError, err, trace)
 		return
 	}
 
 	timeout, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	var pgErr *pgconn.PgError
-
 	info, err := h.Queries.EmailForInfo(timeout, req.Email)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NotFoundError(logger, "user_lookup_by_email", w, trace, err)
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_lookup_by_email", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "user_lookup_by_email_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "user_lookup_by_email", w, trace, err)
+		err = failure.Wrap("kitanai.database.user.fetch_via_email", err)
+		errlog.Database(logger, w, "user_lookup", trace, err)
 		return
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(info.PasswordHash), []byte(req.Password))
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Int("status", http.StatusUnauthorized).
-			Str("code", "invalid_password").
-			Msg("incorrect password")
-		lib.Pretty(w, http.StatusUnauthorized, lib.Error{
-			Code:    "UNAUTHORIZED",
-			Message: "Invalid email or password",
-			TraceID: trace,
-		})
+		err = failure.Wrap("kitanai.http.password.compare", err)
+		errlog.Http(logger, w, "user_login", failure.UnauthorizedError, err, trace)
 		return
 	}
 
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.GenerateError(logger, "token", w, trace, err)
+		err = failure.Wrap("kitanai.http.session.token.create", err)
+		errlog.Http(logger, w, "session_token", failure.GenerationError, err, trace)
 		return
 	}
 
@@ -118,46 +84,27 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.RedisClient.Set(timeout, "session:token:"+hashToken, info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "session_token_insert", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "session_token_insert", w, trace, err)
+		err = failure.Wrap("kitanai.redis.session.token.insert", err)
+		errlog.Redis(logger, w, "session_token_insert", err, trace)
 		return
 	}
 
 	insertedFields, err := h.RedisClient.SAdd(timeout, "session:id:"+info.ID.String(), hashToken).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "session_id_insert", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "session_id_insert", w, trace, err)
+		err = failure.Wrap("kitanai.redis.session.id.insert", err)
+		errlog.Redis(logger, w, "session_id_insert", err, trace)
 		return
 	}
 	if insertedFields == 0 {
-		errlog.ConflictError(logger, "session_id", w, trace)
+		err = failure.Conflict("session_id")
+		err = failure.Wrap("kitanai.redis.session.id.existence_check", err)
+		errlog.Http(logger, w, "session_id", failure.ConflictError, err, trace)
 		return
 	}
 	_, err = h.RedisClient.Expire(timeout, "session:id:"+info.ID.String(), 5184000*time.Second).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "session_id_ttl", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "session_id_ttl", w, trace, err)
+		err = failure.Wrap("kitanai.redis.session.id.expire", err)
+		errlog.Redis(logger, w, "session_id_expire", err, trace)
 		return
 	}
 
