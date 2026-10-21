@@ -14,4 +14,5 @@ const (
 	ConflictError           KindType = "conflict"
 	GeneralError            KindType = "general"
 	InternalGeneralError    KindType = "internal_general"
+	RateLimitError          KindType = "rate_limit"
 )

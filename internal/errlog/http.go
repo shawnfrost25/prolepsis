@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func Validate(logger zerolog.Logger, w http.ResponseWriter, subject string, kind failure.KindType, err error, trace string) {
+func Http(logger zerolog.Logger, w http.ResponseWriter, subject string, kind failure.KindType, err error, trace string) {
 	respond := func(status int, errorCode string, message string) {
 		lib.Pretty(w, status, lib.Error{
 			Code:    errorCode,
@@ -71,5 +71,12 @@ func Validate(logger zerolog.Logger, w http.ResponseWriter, subject string, kind
 			Str("code", subject+"_not_found").
 			Msg(subjectMsg + " not found")
 		respond(http.StatusNotFound, "NOT_FOUND", "Nothing matches the provided resource")
+	case failure.RateLimitError:
+		logger.Warn().
+			Err(err).
+			Int("status", http.StatusTooManyRequests).
+			Str("code", subject+"_rate_limited").
+			Msg(subjectMsg + " is rate limited")
+		respond(http.StatusTooManyRequests, "TOO_MANY_REQUESTS", "Too many requests, try again later")
 	}
 }

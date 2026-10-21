@@ -2,16 +2,14 @@ package kitanai
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
@@ -27,41 +25,27 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	idRaw := chi.URLParam(r, "id")
 
 	if idRaw == "" {
-		errlog.EmptyValueError(logger, "id_parameter", w, u.Trace)
+		err := failure.EmptyValue("id_parameter")
+		err = failure.Wrap("kitanai.http.parameter.id.validate", err)
+		errlog.Http(logger, w, "id_parameter", failure.EmptyValueError, err, u.Trace)
 		return
 	}
 
 	var id pgtype.UUID
 	err := id.Scan(idRaw)
 	if err != nil {
-		errlog.ParsingError(logger, "id_format", w, u.Trace, err)
+		err = failure.Wrap("kitanai.http.parameter.id.convert", err)
+		errlog.Http(logger, w, "id_parameter", failure.MalformedError, err, u.Trace)
 		return
 	}
 
 	timeout, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
 
-	var pgErr *pgconn.PgError
-
 	info, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NotFoundError(logger, "user", w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_lookup_by_id", w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, u.Trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_lookup_by_id_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "user_lookup_by_id", w, u.Trace, err)
+		err = failure.Wrap("kitanai.database.user.fetch_via_id", err)
+		errlog.Database(logger, w, "user_lookup", u.Trace, err)
 		return
 	}
 
