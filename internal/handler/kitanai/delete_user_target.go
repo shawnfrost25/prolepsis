@@ -2,23 +2,19 @@ package kitanai
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	kitanaijob "prolepsis/internal/job/kitanai"
 	"prolepsis/internal/lib"
 
 	"github.com/bytedance/sonic"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -38,15 +34,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 	deleteSessionID := func(ctx context.Context, id string) bool {
 		_, err := h.RedisClient.Del(ctx, "session:id:"+id).Result()
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "session_id_delete", w, u.Trace, err)
-				return true
-			}
-			if redis.IsAuthError(err) {
-				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
-				return true
-			}
-			errlog.UnexpectedError(logger, "session_id_delete", w, u.Trace, err)
+			err = failure.Wrap("kitanai.redis.session.id.delete", err)
+			errlog.Redis(logger, w, "session_id_delete", err, u.Trace)
 			return true
 		}
 		return false
@@ -55,30 +44,16 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 	deleteSessionTokens := func(ctx context.Context, id string) bool {
 		tokens, err := h.RedisClient.SMembers(ctx, "session:id:"+id).Result()
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "session_id_fetch", w, u.Trace, err)
-				return true
-			}
-			if redis.IsAuthError(err) {
-				errlog.RedisAuthenticationError(logger, w, u.Trace, err)
-				return true
-			}
-			errlog.UnexpectedError(logger, "session_id_fetch", w, u.Trace, err)
+			err = failure.Wrap("kitanai.redis.session.id.fetch", err)
+			errlog.Redis(logger, w, "session_id_fetch", err, u.Trace)
 			return true
 		}
 
 		for _, token := range tokens {
 			_, err := h.RedisClient.Del(ctx, "session:token:"+token).Result()
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					errlog.DeadlineExceededError(logger, "session_token_delete", w, u.Trace, err)
-					return true
-				}
-				if redis.IsAuthError(err) {
-					errlog.RedisAuthenticationError(logger, w, u.Trace, err)
-					return true
-				}
-				errlog.UnexpectedError(logger, "session_token_delete", w, u.Trace, err)
+				err = failure.Wrap("kitanai.redis.session.token.delete", err)
+				errlog.Redis(logger, w, "session_token_delete", err, u.Trace)
 				return true
 			}
 		}
@@ -88,31 +63,18 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 	setDeletionAlarm := func(ctx context.Context, scheduled_at pgtype.Timestamptz, userID pgtype.UUID) bool {
 		err := riverClient.SetupDeletionAlarm(ctx, scheduled_at, userID)
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "river_setup", w, u.Trace, err)
-				return true
-			}
-			errlog.UnexpectedError(logger, "river_setup", w, u.Trace, err)
+			err = failure.Wrap("kitanai.river.deletion.alarm.setup", err)
+			errlog.General(logger, w, "deletion_alarm_setup", failure.InternalGeneralError, err, u.Trace)
 			return true
 		}
 		return false
 	}
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	var req DeleteRequestTarget
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "target_delete_payload", w, u.Trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
-			return
-		}
-		errlog.ParsingError(logger, "target_delete_payload", w, u.Trace, err)
+		err = failure.Wrap("kitanai.json.delete.payload.decode", err)
+		errlog.Json(logger, w, "user_delete", u.Trace, err)
 		return
 	}
 
@@ -121,39 +83,26 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
-		errlog.EmptyValueError(logger, "id_parameter", w, u.Trace)
+		err = failure.EmptyValue("id_parameter")
+		err = failure.Wrap("kitanai.http.parameter.id.validate", err)
+		errlog.Http(logger, w, "id_parameter", failure.EmptyValueError, err, u.Trace)
 		return
 	}
 
 	var id pgtype.UUID
 	err = id.Scan(idStr)
 	if err != nil {
-		errlog.ParsingError(logger, "id_format", w, u.Trace, err)
+		err = failure.Wrap("kitanai.http.parameter.id.convert", err)
+		errlog.Http(logger, w, "id_parameter", failure.MalformedError, err, u.Trace)
 		return
 	}
 
 	logger = logger.With().Str("target_id", id.String()).Logger()
-	var pgErr *pgconn.PgError
 
 	infoUS, err := h.Queries.GetUserByID(timeout, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			errlog.NotFoundError(logger, "user", w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_lookup", w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, u.Trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_lookup_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "user_lookup", w, u.Trace, err)
+		err = failure.Wrap("kitanai.database.user.fetch_via_id", err)
+		errlog.Database(logger, w, "user_lookup", u.Trace, err)
 		return
 	}
 
@@ -171,23 +120,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		err := h.Queries.DeleteUser(timeout, id)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				errlog.NotFoundError(logger, "user", w, u.Trace, err)
-				return
-			}
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "user_delete", w, u.Trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, u.Trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "user_delete", w, u.Trace, err)
+			err = failure.Wrap("kitanai.database.user.delete", err)
+			errlog.Database(logger, w, "user_delete", u.Trace, err)
 			return
 		}
 		logger.Info().Int("status", http.StatusNoContent).
@@ -198,13 +132,17 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 		// User cannot delete nobody (beside themselves)
 	case "user":
-		errlog.ForbiddenError(logger, "user_delete", w, u.Trace)
+		err = failure.Forbidden("user_delete", "users cannot delete other accounts")
+		err = failure.Wrap("kitanai.http.role.permission.validate", err)
+		errlog.Http(logger, w, "user_delete", failure.ForbiddenError, err, u.Trace)
 		return
 
 	// An admin cannot delete the owner or another admin
 	case "admin":
 		if infoUS.Role == "owner" || infoUS.Role == "admin" {
-			errlog.ForbiddenError(logger, "user_delete", w, u.Trace)
+			err = failure.Forbidden("user_delete", "admins cannot delete owners or other admins")
+			err = failure.Wrap("kitanai.http.role.permission.validate", err)
+			errlog.Http(logger, w, "user_delete", failure.ForbiddenError, err, u.Trace)
 			return
 		}
 
@@ -229,19 +167,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 				Clarification: req.Clarification,
 			})
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					errlog.DeadlineExceededError(logger, "user_delete_request", w, u.Trace, err)
-					return
-				}
-				if errors.Is(err, pgconn.ErrConnClosed) {
-					errlog.ErrConnClosed(logger, w, u.Trace, err)
-					return
-				}
-				if errors.As(err, &pgErr) {
-					errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr, err)
-					return
-				}
-				errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)
+				err = failure.Wrap("kitanai.database.deletion.request.insert", err)
+				errlog.Database(logger, w, "deletion_request_insert", u.Trace, err)
 				return
 			}
 
@@ -273,23 +200,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 		err = h.Queries.DeleteUser(timeout, id)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				errlog.NotFoundError(logger, "user", w, u.Trace, err)
-				return
-			}
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "user_delete", w, u.Trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, u.Trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "user_delete", w, u.Trace, err)
+			err = failure.Wrap("kitanai.database.user.delete", err)
+			errlog.Database(logger, w, "user_delete", u.Trace, err)
 			return
 		}
 
@@ -303,7 +215,9 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 
 	case "worker":
 		if infoUS.Role != "user" {
-			errlog.ForbiddenError(logger, "user_delete", w, u.Trace)
+			err = failure.Forbidden("user_delete", "workers can only delete users")
+			err = failure.Wrap("kitanai.http.role.permission.validate", err)
+			errlog.Http(logger, w, "user_delete", failure.ForbiddenError, err, u.Trace)
 			return
 		}
 
@@ -323,19 +237,8 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 			Clarification: req.Clarification,
 		})
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "user_delete_request", w, u.Trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, u.Trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, u.Trace, "user_delete_request_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "user_delete_request", w, u.Trace, err)
+			err = failure.Wrap("kitanai.database.deletion.request.insert", err)
+			errlog.Database(logger, w, "deletion_request_insert", u.Trace, err)
 			return
 		}
 
@@ -354,5 +257,7 @@ func (h *Handler) DeleteUserTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errlog.UnauthorizedError(logger, "nonexistent_role", w, u.Trace, nil)
+	err = failure.Unauthorized("role", "the role is not recognized")
+	err = failure.Wrap("kitanai.http.role.permission.validate", err)
+	errlog.Http(logger, w, "role", failure.UnauthorizedError, err, u.Trace)
 }
