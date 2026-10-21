@@ -2,17 +2,15 @@ package kitanai
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -40,24 +38,16 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "create_user").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("kitanai.http.trace.context.fetch", err)
+		errlog.Http(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "create_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-			return
-		}
-		errlog.ParsingError(logger, "create_payload", w, trace, err)
+		err = failure.Wrap("kitanai.json.create.payload.decode", err)
+		errlog.Json(logger, w, "user_create", trace, err)
 		return
 	}
 
@@ -78,8 +68,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		missingFields = append(missingFields, "password")
 	}
 	if len(missingFields) != 0 {
+		err := failure.EmptyValue("registration_fields")
+		err = failure.Wrap("kitanai.http.create.payload.existence_check", err)
 		logger = logger.With().Interface("missing_fields", missingFields).Logger()
-		errlog.EmptyValueError(logger, "registration_value", w, trace)
+		errlog.Http(logger, w, "registration_fields", failure.EmptyValueError, err, trace)
 		return
 	}
 	timeout, cancelDB := context.WithTimeout(r.Context(), 3*time.Second)
@@ -94,29 +86,18 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		"message": fmt.Sprintf("If the provided information is valid, a verification token has been sent for %s via email.", appName),
 	}
 
-	var pgErr *pgconn.PgError
 	userExists, err := h.Queries.UserExists(timeout, *req.Email)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_existence_check", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "user_existence_check_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "user_existence_check", w, trace, err)
+		err = failure.Wrap("kitanai.database.user.existence_check", err)
+		errlog.Database(logger, w, "user_existence_check", trace, err)
 		return
 	}
 	place := lib.ExtractLocation(r)
 	device := lib.ExtractDevice(r)
 	token, err := auth.CreateToken()
 	if err != nil {
-		errlog.GenerateError(logger, "token", w, trace, err)
+		err = failure.Wrap("kitanai.http.registration.token.create", err)
+		errlog.Http(logger, w, "registration_token", failure.GenerationError, err, trace)
 		return
 	}
 
@@ -125,15 +106,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		doesnt_exists, err := h.RedisClient.SetNX(timeout, "pending:registration:email:"+*req.Email, 1, 24*time.Hour).Result()
 		// If an error happened while trying to insert the rate limited email
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "email_rate_limit", w, trace, err)
-				return
-			}
-			if redis.IsAuthError(err) {
-				errlog.RedisAuthenticationError(logger, w, trace, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "email_rate_limit", w, trace, err)
+			err = failure.Wrap("kitanai.redis.registration.email.insert", err)
+			errlog.Redis(logger, w, "registration_email_insert", err, trace)
 			return
 		}
 
@@ -159,7 +133,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 			err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 			if err != nil {
-				errlog.UnexpectedError(logger, "email_send", w, trace, err)
+				err = failure.Wrap("kitanai.http.email.send", err)
+				errlog.General(logger, w, "email_send", failure.InternalGeneralError, err, trace)
 				return
 			}
 			logger.Info().
@@ -169,16 +144,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			lib.Pretty(w, http.StatusOK, standardResponse)
 			return
 		}
-		logger.Warn().
-			Str("email", *req.Email).
-			Int("status", http.StatusTooManyRequests).
-			Str("code", "rate_limit").
-			Msg("rate limited")
-		lib.Pretty(w, http.StatusTooManyRequests, lib.Error{
-			Code:    "TOO_MANY_REGISTRATION_REQUESTS",
-			Message: "An account security email was already sent recently. Please check your inbox or wait before trying again.",
-			TraceID: trace,
-		})
+		err = failure.RateLimit()
+		err = failure.Wrap("kitanai.http.registration.email.rate_limit_check", err)
+		logger = logger.With().Str("email", *req.Email).Logger()
+		errlog.Http(logger, w, "registration_email", failure.RateLimitError, err, trace)
 		return
 	}
 
@@ -199,12 +168,14 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	hashToken := auth.HashToken(token)
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		errlog.GenerateError(logger, "password_hash", w, trace, err)
+		err = failure.Wrap("kitanai.http.password.hash", err)
+		errlog.Http(logger, w, "password_hash", failure.GenerationError, err, trace)
 		return
 	}
 	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
 	if err != nil {
-		errlog.UnexpectedError(logger, "email_send", w, trace, err)
+		err = failure.Wrap("kitanai.http.email.send", err)
+		errlog.General(logger, w, "email_send", failure.InternalGeneralError, err, trace)
 		return
 	}
 
@@ -221,20 +192,15 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		"password_hash", string(hashPassword),
 	).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "registration_token_insert", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "registration_token_insert", w, trace, err)
+		err = failure.Wrap("kitanai.redis.registration.token.insert", err)
+		errlog.Redis(logger, w, "registration_token_insert", err, trace)
 		return
 	}
 	// Using "FNX" (Field Not Exists) ensures fields are only inserted if they do not already exist. A return value of 0 means the operation skipped because the registration record already exists. Otherwise, it returns the total number of newly created hash fields.
 	if insertedFields == 0 {
-		errlog.ConflictError(logger, "registration_token", w, trace)
+		err = failure.Conflict("registration_token")
+		err = failure.Wrap("kitanai.redis.registration.token.existence_check", err)
+		errlog.Http(logger, w, "registration_token", failure.ConflictError, err, trace)
 		return
 	}
 
