@@ -4,7 +4,7 @@
 * At first, I didn't really care which logging library I was going to use because I thought it wasn't a big deal. And honestly, it wasn't. However, I was looking for a fast logging library because I wanted to make everything as efficient as possible. This is also one of the reasons I chose `sonic` over Go's standard `encoding/json` package. After learning more about `zerolog`, I found it simpler and less verbose than `slog`, at least in my experience. I had also seen recommendations for it on Reddit and other platforms, so I decided to give it a try. I ended up genuinely enjoying it! However, there are a few significant drawbacks that became more noticeable as the project grew.
 
 * **Pros:**
-* * **Simplicity** -> Even though I had only worked with `slog` before, I quickly understood how `zerolog` was structured. Its logging levels are easy to identify through `zerolog.Level`, and setting it up requires very little configuration. Overall, I found its API comfortable to work with.
+* * **Simplicity** -> Even though I had only worked with `slog` before, I quickly understood how `zerolog` was structured. Its logging levels are easy to identify through `zerolog.Level`, and setting it up requires very little configuration. Overall, I found its API comfortable to work with. It also comes with a built-in context process (pretty handy)
 * * **Performance** -> I cannot honestly claim that `zerolog` is thousands of times faster than `slog`, because I have not conducted any benchmarks to support that statement. Although performance was one of the reasons I considered it, my decision was influenced more by community recommendations and the simplicity of its API than by measured performance differences.
 
 * **Cons:**
