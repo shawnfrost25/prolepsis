@@ -2,17 +2,15 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
@@ -21,29 +19,18 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "push").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("github.http.trace.context.fetch", err)
+		errlog.Internal(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var pgErr *pgconn.PgError
-
 	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
+		err = failure.Wrap("github.database.delivery.id.insert", err)
+		errlog.Database(logger, w, "webhook_delivery_id_insert", trace, err)
 		return
 	}
 	if insertedRows == 0 {
@@ -54,20 +41,11 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		lib.Pretty(w, http.StatusOK, nil)
 	}
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	var req GitHubPush
 	err = sonic.Unmarshal(body, &req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "push_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-		}
-		errlog.ParsingError(logger, "push_payload", w, trace, err)
+		err = failure.Wrap("github.json.push.payload.unmarshal", err)
+		errlog.Json(logger, w, "push", trace, err)
 		return
 	}
 
@@ -90,16 +68,8 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 		IsCreated:    req.Created,
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "push_insert", w, trace, err)
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "push_insert_failed", pgErr, err)
-		}
-		errlog.UnexpectedError(logger, "push_insert", w, trace, err)
+		err = failure.Wrap("github.database.push.insert", err)
+		errlog.Database(logger, w, "push_insert", trace, err)
 		return
 	}
 
@@ -114,19 +84,8 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 			CommittedAt: pgtype.Timestamptz{Time: commit.CommittedAt, Valid: true},
 		})
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "push_commit_insert", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "push_commit_insert_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "push_commit_insert", w, trace, err)
+			err = failure.Wrap("github.database.push.commit.insert", err)
+			errlog.Database(logger, w, "push_commit_insert", trace, err)
 			return
 		}
 
