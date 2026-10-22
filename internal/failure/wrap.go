@@ -10,7 +10,7 @@ import "fmt"
 // -- code -> Explain the cause (e.g. user_query_failed, id_parameter_malformed)
 // -- wrap -> Explain the current process (e.g. kitanai.http.parameters.id.convert, github.redis.webhook.secret.fetch)
 func Wrap(process string, err error) error {
-	if err != nil {
+	if err == nil {
 		return nil
 	}
 
