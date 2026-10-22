@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/failure"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
@@ -13,7 +14,8 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 	logger = logger.With().Str("process", "pull_request").Logger()
 	pullRequestId, err, code := ParseId(pullRequest.FullDatabaseId)
 	if err != nil {
-		logger = logger.With().Str("pull_request_name", pullRequest.Title).Str("pull_request_id", *pullRequest.FullDatabaseId).Logger()
+		err = failure.Wrap("github.http.pull_request.id.validate", err)
+		logger = logger.With().Str("pull_request_name", pullRequest.Title).Interface("pull_request_id", pullRequest.FullDatabaseId).Logger()
 		logger.Debug().
 			Err(err).
 			Int("status", http.StatusBadRequest).
@@ -96,6 +98,7 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 			MergedAt:           mergedAt,
 		})
 		if err != nil {
+			err = failure.Wrap("github.database.pull_request.insert", err)
 			logger = logger.With().Str("pull_request_name", pullRequest.Title).Str("pull_request_id", *pullRequest.FullDatabaseId).Logger()
 			logger.Debug().
 				Err(err).
@@ -114,7 +117,8 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 
 				pullRequestCommentId, err, code := ParseId(comment.FullDatabaseId)
 				if err != nil {
-					logger = logger.With().Str("pull_request_comment_id", *comment.FullDatabaseId).Logger()
+					err = failure.Wrap("github.http.comment.id.validate", err)
+					logger = logger.With().Interface("pull_request_comment_id", comment.FullDatabaseId).Logger()
 					logger.Debug().
 						Err(err).
 						Int("status", http.StatusBadRequest).
@@ -134,6 +138,7 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 					UpdatedAt:       pgtype.Timestamptz{Time: comment.UpdatedAt, Valid: true},
 				})
 				if err != nil {
+					err = failure.Wrap("github.database.pull_request.comment.insert", err)
 					logger.Debug().
 						Err(err).
 						Int("status", http.StatusInternalServerError).
@@ -144,8 +149,11 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 			}
 		}
 	default:
+		err = failure.Invalid("pull_request_state", "unsupported state "+pullRequest.State)
+		err = failure.Wrap("github.http.pull_request.state.validate", err)
 		logger = logger.With().Str("pull_request_name", pullRequest.Title).Str("pull_request_id", *pullRequest.FullDatabaseId).Logger()
 		logger.Debug().
+			Err(err).
 			Int("status", http.StatusBadRequest).
 			Str("code", "pull_request_state_invalid").
 			Str("pull_request_state", pullRequest.State).
