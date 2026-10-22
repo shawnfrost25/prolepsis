@@ -4,13 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -27,21 +26,16 @@ func (h *GitHubHandler) GitHubRedirect(w http.ResponseWriter, r *http.Request) {
 	n := make([]byte, 16)
 	_, err := rand.Read(n)
 	if err != nil {
-		errlog.GenerateError(logger, "bytes_read", w, u.Trace, err)
+		err = failure.Wrap("github.http.oauth.state.generate", err)
+		errlog.Internal(logger, w, "oauth_state", failure.GenerationError, err, u.Trace)
 		return
 	}
 	state := hex.EncodeToString(n)
 
 	_, err = h.RedisClient.Set(timeout, "oauth:github:state:"+state, u.ID.String(), 10*time.Minute).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "state_insert", w, u.Trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, u.Trace, err)
-		}
-		errlog.UnexpectedError(logger, "state_insert", w, u.Trace, err)
+		err = failure.Wrap("github.redis.oauth.state.insert", err)
+		errlog.Redis(logger, w, "oauth_state_insert", err, u.Trace)
 		return
 	}
 
