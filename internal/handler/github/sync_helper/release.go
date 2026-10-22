@@ -6,13 +6,17 @@ import (
 	"github.com/rs/zerolog"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/failure"
 )
 
 func ReleaseCallback(logger zerolog.Logger, release ReleaseNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "releases").Logger()
 	if release.DatabaseId == nil {
-		logger = logger.With().Str("release_name", release.TagName).Int("release_id", *release.DatabaseId).Logger()
+		err := failure.EmptyValue("release_id")
+		err = failure.Wrap("github.http.release.id.existence_check", err)
+		logger = logger.With().Str("release_name", release.TagName).Logger()
 		logger.Debug().
+			Err(err).
 			Int("status", http.StatusBadRequest).
 			Str("code", "release_id_missing").
 			Msg("skip release")
@@ -46,6 +50,7 @@ func ReleaseCallback(logger zerolog.Logger, release ReleaseNode, ctx context.Con
 		PublishedAt:   publishedAt,
 	})
 	if err != nil {
+		err = failure.Wrap("github.database.release.insert", err)
 		logger = logger.With().Str("release_name", release.TagName).Int("release_id", *release.DatabaseId).Logger()
 		logger.Debug().
 			Err(err).
