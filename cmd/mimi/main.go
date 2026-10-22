@@ -166,7 +166,6 @@ func main() {
 		r.Post("/users/create", k.CreateUser)
 		r.Get("/users/create/verify", k.VerifyRegistration)
 		r.Post("/users/login", k.LoginUser)
-		r.Post("/oauth/github/webhook/mock", oauthGithub.MockGithubWebHook)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -186,7 +185,6 @@ func main() {
 				r.Use(auth.Auth_Middleware)
 				r.With(authLimiter).Post("/github/redirect", g.GitHubRedirect)
 				r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
-				r.With(authLimiter).Post("/github/callback/mock", g.GitHubCallbackMock)
 			})
 
 			r.Group(func(r chi.Router) {
