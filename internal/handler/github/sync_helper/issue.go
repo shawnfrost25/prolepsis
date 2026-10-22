@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	db "prolepsis/internal/db/sqlc"
+	"prolepsis/internal/failure"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
@@ -13,7 +14,8 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 	logger = logger.With().Str("process", "issues").Logger()
 	issueId, err, code := ParseId(issue.FullDatabaseId)
 	if err != nil {
-		logger = logger.With().Str("issue_name", issue.Title).Str("issue_id", *issue.FullDatabaseId).Logger()
+		err = failure.Wrap("github.http.issue.id.validate", err)
+		logger = logger.With().Str("issue_name", issue.Title).Interface("issue_id", issue.FullDatabaseId).Logger()
 		logger.Debug().
 			Err(err).
 			Int("status", http.StatusInternalServerError).
@@ -87,6 +89,7 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 			ClosedAt:           closedAt,
 		})
 		if err != nil {
+			err = failure.Wrap("github.database.issue.insert", err)
 			logger = logger.With().Str("issue_name", issue.Title).Str("issue_id", *issue.FullDatabaseId).Logger()
 			logger.Debug().
 				Err(err).
@@ -105,7 +108,8 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 
 				issueCommentId, err, code := ParseId(comment.FullDatabaseId)
 				if err != nil {
-					logger = logger.With().Str("issue_comment_id", *comment.FullDatabaseId).Logger()
+					err = failure.Wrap("github.http.comment.id.validate", err)
+					logger = logger.With().Interface("issue_comment_id", comment.FullDatabaseId).Logger()
 					logger.Debug().
 						Err(err).
 						Int("status", http.StatusBadRequest).
@@ -125,6 +129,7 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 					UpdatedAt:       pgtype.Timestamptz{Time: comment.UpdatedAt, Valid: true},
 				})
 				if err != nil {
+					err = failure.Wrap("github.database.issue.comment.insert", err)
 					logger.Debug().
 						Err(err).
 						Int("status", http.StatusInternalServerError).
@@ -135,8 +140,11 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 			}
 		}
 	default:
+		err = failure.Invalid("issue_state", "unsupported state "+issue.State)
+		err = failure.Wrap("github.http.issue.state.validate", err)
 		logger = logger.With().Str("issue_name", issue.Title).Str("issue_id", *issue.FullDatabaseId).Logger()
 		logger.Debug().
+			Err(err).
 			Int("status", http.StatusBadRequest).
 			Str("code", "issue_state_invalid").
 			Str("issue_state", issue.State).
