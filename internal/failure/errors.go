@@ -2,6 +2,8 @@ package failure
 
 import "fmt"
 
+// Store errors that the system doesn't give us
+
 func EmptyValue(subject string) error {
 	return fmt.Errorf("Value %q cannot be empty", subject)
 }
@@ -28,4 +30,12 @@ func Forbidden(subject, reason string) error {
 
 func Unauthorized(subject, reason string) error {
 	return fmt.Errorf("Action %q is unauthorized: %s", subject, reason)
+}
+
+func General(subject, reason string) error {
+	return fmt.Errorf("Operation %q failed: %s", subject, reason)
+}
+
+func InternalGeneral(subject, reason string) error {
+	return fmt.Errorf("Operation %q ended unexpectedly: %s", subject, reason)
 }
