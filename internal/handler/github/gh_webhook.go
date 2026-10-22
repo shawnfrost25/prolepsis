@@ -6,22 +6,18 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/handler/github/webhook"
-	"prolepsis/internal/lib"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -29,7 +25,9 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context()).With().Str("op", "github_webhook").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("github.http.trace.context.fetch", err)
+		errlog.Internal(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 	shaRaw := r.Header.Get("X-Hub-Signature-256")
@@ -40,46 +38,40 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		errlog.UnexpectedError(logger, "webhook_body_read", w, trace, err)
+		err = failure.Wrap("github.http.webhook.payload.read", err)
+		errlog.General(logger, w, "webhook_body_read", failure.GeneralError, err, trace)
 		return
 	}
-
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
 
 	var req webhook.Repository
 	err = sonic.Unmarshal(bodyBytes, &req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "webhook_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-			return
-		}
-		errlog.ParsingError(logger, "webhook_payload", w, trace, err)
+		err = failure.Wrap("github.json.webhook.repository.unmarshal", err)
+		errlog.Json(logger, w, "webhook", trace, err)
 		return
 	}
 
 	if len(sha) != 2 {
-		errlog.InvalidError(logger, "webhook_signature", w, trace)
+		err := failure.Invalid("webhook_signature", "Signature doesn't start with 'sha256=token'")
+		err = failure.Wrap("github.http.webhook.signature.length_check", err)
+		errlog.Http(logger, w, "webhook_signature", failure.InvalidError, err, trace)
 		return
 	}
 
 	if sha[0] != prefix || len(sha[1]) != 64 {
 		var reason string
 		if sha[0] != prefix && len(sha[1]) != 64 {
-			reason = "fully invalid sha256"
+			reason = "Fully invalid sha256"
 		}
 		if sha[0] != prefix && len(sha[1]) == 64 {
-			reason = "prefix is not 'sha256'"
+			reason = "Prefix is not 'sha256'"
 		}
 		if sha[0] == prefix && len(sha[1]) != 64 {
-			reason = "sha256 length is not 64"
+			reason = "Sha256 length is not 64"
 		}
-		logger = logger.With().Str("reason", reason).Logger()
-		errlog.InvalidError(logger, "webhook_signature", w, trace)
+		err := failure.Invalid("webhook_signature", reason)
+		err = failure.Wrap("github.http.webhook.signature.validate", err)
+		errlog.Http(logger, w, "webhook_signature", failure.InvalidError, err, trace)
 		return
 	}
 
@@ -87,19 +79,8 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	secret, err := h.RedisClient.Get(timeout, "oauth:github:webhook:secret:"+repoIDStr).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "webhook_secret_fetch", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "webhook_secret", w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "webhook_secret_fetch", w, trace, err)
+		err = failure.Wrap("github.redis.webhook.secret.fetch", err)
+		errlog.Redis(logger, w, "webhook_secret_fetch", err, trace)
 		return
 	}
 
@@ -109,51 +90,38 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	n := subtle.ConstantTimeCompare([]byte(expected), []byte(sha[1]))
 	if n == 0 {
-		errlog.InvalidError(logger, "sha_compare", w, trace)
+		err := failure.Unauthorized("webhook_signature", "The provided secret doesn't match")
+		err = failure.Wrap("github.http.webhook.secret.compare", err)
+		errlog.Http(logger, w, "webhook_secret", failure.UnauthorizedError, err, trace)
 		return
 	}
-
-	var pgErr *pgconn.PgError
 
 	exists, err := h.Queries.ExistGitHubRepo(timeout, req.ID)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "repo_existence_check", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "repo_existence_check_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "repo_existence_check", w, trace, err)
+		err = failure.Wrap("github.database.repository.existence_check", err)
+		errlog.Database(logger, w, "repository_existence_check", trace, err)
 		return
 	}
 	if !exists {
-		logger.Warn().
-			Int("status", http.StatusOK).
-			Int64("repo_id", req.ID).
-			Msg("missing repository")
-		lib.Pretty(w, http.StatusOK, lib.Error{
-			Code:    "OK",
-			Message: "Repository is not registered, ignoring push event",
-			TraceID: trace,
-		})
+		err := failure.NotFound("repository")
+		err = failure.Wrap("github.database.repository.existence_check", err)
+		errlog.Http(logger, w, "repository", failure.NotFoundError, err, trace)
+		return
 	}
 
 	deliveryIDStr := r.Header.Get("X-GitHub-Delivery")
 
 	if deliveryIDStr == "" {
-		errlog.EmptyValueError(logger, "delivery_id", w, trace)
+		err := failure.EmptyValue("webhook_delivery_id")
+		err = failure.Wrap("github.http.delivery.id.existence_check", err)
+		errlog.Http(logger, w, "webhook_delivery_id", failure.EmptyValueError, err, trace)
 		return
 	}
 
 	var deliveryID pgtype.UUID
 	if err := deliveryID.Scan(deliveryIDStr); err != nil {
-		errlog.ParsingError(logger, "delivery_id_format", w, trace, err)
+		err = failure.Wrap("github.http.delivery.id.convert", err)
+		errlog.Http(logger, w, "webhook_delivery_id", failure.MalformedError, err, trace)
 		return
 	}
 
@@ -163,7 +131,9 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		errlog.InvalidError(logger, "webhook_payload", w, trace)
+		err := failure.Invalid("content_type", "Not a json payload")
+		err = failure.Wrap("github.http.webhook.content.type_check", err)
+		errlog.Http(logger, w, "webhook_content_type", failure.InvalidError, err, trace)
 		return
 	}
 
