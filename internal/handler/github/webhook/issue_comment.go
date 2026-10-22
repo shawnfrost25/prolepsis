@@ -2,17 +2,15 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
 )
@@ -21,46 +19,28 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "issue_comment").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("github.http.trace.context.fetch", err)
+		errlog.Internal(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	var req IssueCommentsWebhook
 	err := sonic.Unmarshal(body, &req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "issue_comment_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-		}
-		errlog.ParsingError(logger, "issue_comment_payload", w, trace, err)
+		err = failure.Wrap("github.json.issue_comment.payload.unmarshal", err)
+		errlog.Json(logger, w, "issue_comment", trace, err)
 		return
 	}
 
-	var pgErr *pgconn.PgError
+	//
 
 	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
+		err = failure.Wrap("github.database.delivery.id.insert", err)
+		errlog.Database(logger, w, "webhook_delivery_id_insert", trace, err)
 		return
 	}
 	if insertedRows == 0 {
@@ -78,24 +58,15 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 		if req.IssueComment.PullRequest != nil {
 			exists, err := h.Queries.ExistPullRequest(timeout, req.Issue.ID)
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					errlog.DeadlineExceededError(logger, "pull_request_existence_check", w, trace, err)
-					return
-				}
-				if errors.Is(err, pgconn.ErrConnClosed) {
-					errlog.ErrConnClosed(logger, w, trace, err)
-					return
-				}
-				if errors.As(err, &pgErr) {
-					errlog.PgConnError(logger, w, trace, "pull_request_existence_check_failed", pgErr, err)
-					return
-				}
-				errlog.UnexpectedError(logger, "pull_request_existence_check", w, trace, err)
+				err = failure.Wrap("github.database.pull_request.existence_check", err)
+				errlog.Database(logger, w, "pull_request_existence_check", trace, err)
 				return
 			}
 
 			if !exists {
-				errlog.NotFoundError(logger, "issue", w, trace, err)
+				err = failure.NotFound("pull_request")
+				err = failure.Wrap("github.database.pull_request.existence_check", err)
+				errlog.Http(logger, w, "pull_request", failure.NotFoundError, err, trace)
 				return
 			}
 
@@ -111,19 +82,8 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 				UpdatedAt:   pgtype.Timestamptz{Time: req.IssueComment.UpdatedAt, Valid: true},
 			})
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					errlog.DeadlineExceededError(logger, "pull_request_comment_insert", w, trace, err)
-					return
-				}
-				if errors.Is(err, pgconn.ErrConnClosed) {
-					errlog.ErrConnClosed(logger, w, trace, err)
-					return
-				}
-				if errors.As(err, &pgErr) {
-					errlog.PgConnError(logger, w, trace, "pull_request_comment_insert_failed", pgErr, err)
-					return
-				}
-				errlog.UnexpectedError(logger, "pull_request_comment_insert", w, trace, err)
+				err = failure.Wrap("github.database.pull_request.comment.insert", err)
+				errlog.Database(logger, w, "pull_request_comment_insert", trace, err)
 				return
 			}
 
@@ -136,24 +96,15 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 
 		exists, err := h.Queries.ExistIssue(timeout, req.Issue.ID)
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issue_existence_check", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issue_existence_check_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "issue_existence_check", w, trace, err)
+			err = failure.Wrap("github.database.issue.existence_check", err)
+			errlog.Database(logger, w, "issue_existence_check", trace, err)
 			return
 		}
 
 		if !exists {
-			errlog.NotFoundError(logger, "issue", w, trace, err)
+			err = failure.NotFound("issue")
+			err = failure.Wrap("github.database.issue.existence_check", err)
+			errlog.Http(logger, w, "issue", failure.NotFoundError, err, trace)
 			return
 		}
 
@@ -169,19 +120,8 @@ func (h *WebhookHandler) WebhookIssueComment(w http.ResponseWriter, r *http.Requ
 			UpdatedAt:   pgtype.Timestamptz{Time: req.IssueComment.UpdatedAt, Valid: true},
 		})
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "issue_comment_insert", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "issue_comment_insert_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "issue_comment_insert", w, trace, err)
+			err = failure.Wrap("github.database.issue.comment.insert", err)
+			errlog.Database(logger, w, "issue_comment_insert", trace, err)
 			return
 		}
 
