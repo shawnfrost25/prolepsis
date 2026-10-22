@@ -2,20 +2,17 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	"prolepsis/internal/lib"
 	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -23,29 +20,18 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 	logger := zerolog.Ctx(r.Context()).With().Str("event", "repository").Logger()
 	trace, ok := auth.GetTrace(r.Context())
 	if !ok {
-		errlog.InternalEmptyValueError(logger, "trace_context", w, trace)
+		err := failure.EmptyValue("trace_context")
+		err = failure.Wrap("github.http.trace.context.fetch", err)
+		errlog.Internal(logger, w, "trace_context", failure.InternalEmptyValueError, err, trace)
 		return
 	}
 	timeout, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	var pgErr *pgconn.PgError
-
 	insertedRows, err := h.Queries.InsertWebhookDeliveries(timeout, deliveryID)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "delivery_id_existence_check", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "delivery_id_existence_check_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "delivery_id_existence_check", w, trace, err)
+		err = failure.Wrap("github.database.delivery.id.insert", err)
+		errlog.Database(logger, w, "webhook_delivery_id_insert", trace, err)
 		return
 	}
 	if insertedRows == 0 {
@@ -56,20 +42,11 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 		lib.Pretty(w, http.StatusOK, nil)
 	}
 
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
-
 	var req RepositoryWebhook
 	err = sonic.Unmarshal(body, &req)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "repository_payload", w, trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, trace, typeErr)
-		}
-		errlog.ParsingError(logger, "repository_payload", w, trace, err)
+		err = failure.Wrap("github.json.repository.payload.unmarshal", err)
+		errlog.Json(logger, w, "repository", trace, err)
 		return
 	}
 
@@ -85,26 +62,22 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 	repoIDStr := strconv.FormatInt(req.ID, 10)
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "webhook_id_fetch", w, trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "webhook_id_fetch", w, trace, err)
+		err = failure.Wrap("github.redis.webhook.hook_id.fetch", err)
+		errlog.Redis(logger, w, "webhook_id_fetch", err, trace)
 		return
 	}
 
 	if hookIDStr == "" {
-		errlog.EmptyValueError(logger, "webhook_id", w, trace)
+		err = failure.EmptyValue("webhook_id")
+		err = failure.Wrap("github.redis.webhook.hook_id.existence_check", err)
+		errlog.Http(logger, w, "webhook_id", failure.EmptyValueError, err, trace)
 		return
 	}
 
 	hookID, err := strconv.ParseInt(hookIDStr, 10, 64)
 	if err != nil {
-		errlog.ParsingError(logger, "webhook_id_format", w, trace, err)
+		err = failure.Wrap("github.http.webhook.id.convert", err)
+		errlog.Http(logger, w, "webhook_id", failure.MalformedError, err, trace)
 		return
 	}
 
@@ -119,19 +92,8 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 			HtmlUrl:    req.LicenseInfo.HtmlUrl,
 		})
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				errlog.DeadlineExceededError(logger, "license_insert", w, trace, err)
-				return
-			}
-			if errors.Is(err, pgconn.ErrConnClosed) {
-				errlog.ErrConnClosed(logger, w, trace, err)
-				return
-			}
-			if errors.As(err, &pgErr) {
-				errlog.PgConnError(logger, w, trace, "license_insert_failed", pgErr, err)
-				return
-			}
-			errlog.UnexpectedError(logger, "license_insert", w, trace, err)
+			err = failure.Wrap("github.database.license.insert", err)
+			errlog.Database(logger, w, "license_insert", trace, err)
 			return
 		}
 
@@ -177,19 +139,8 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 		PushedAt:     pushedAt,
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "repository_insert", w, trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, trace, "repository_insert_failed", pgErr, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "repository_insert", w, trace, err)
+		err = failure.Wrap("github.database.repository.insert", err)
+		errlog.Database(logger, w, "repository_insert", trace, err)
 		return
 	}
 
