@@ -5,13 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"prolepsis/internal/errlog"
+	"prolepsis/internal/failure"
 	synchelper "prolepsis/internal/handler/github/sync_helper"
 	"prolepsis/internal/lib"
 	"strconv"
@@ -19,9 +18,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
@@ -82,7 +79,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				isHireable
 				url
 				repositories(affiliations: [OWNER], isFork: false, first: 100) { # A LIST
-					totalCount 
+					totalCount
 					nodes { # A LIST // CAN BE NULL
 						name
 						isArchived
@@ -102,7 +99,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 						}
 						languages(first: 5) { # CAN BE NULL
 							nodes { # A LIST // CAN BE NULL
-								name 
+								name
 							}
 						}
 						repositoryTopics(first: 40) {
@@ -253,46 +250,38 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	stateURL := r.URL.Query().Get("state")
 	if stateURL == "" {
-		errlog.EmptyValueError(logger, "oauth_state", w, u.Trace)
+		err := failure.EmptyValue("oauth_state")
+		err = failure.Wrap("github.http.query.state.validate", err)
+		errlog.Http(logger, w, "oauth_state", failure.EmptyValueError, err, u.Trace)
 		return
 	}
 
 	id, err := h.RedisClient.GetDel(timeout, "oauth:github:state:"+stateURL).Result()
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "state_fetch", w, u.Trace, err)
-			return
-		}
-		if redis.IsAuthError(err) {
-			errlog.RedisAuthenticationError(logger, w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, redis.Nil) {
-			errlog.NotFoundError(logger, "oauth_state", w, u.Trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "state_fetch", w, u.Trace, err)
+		err = failure.Wrap("github.redis.oauth.state.fetch", err)
+		errlog.Redis(logger, w, "oauth_state_fetch", err, u.Trace)
 		return
 	}
 
 	if id != u.ID.String() {
-		errlog.UnauthorizedError(logger, "state_check", w, u.Trace, nil)
+		err = failure.Unauthorized("oauth_state", "the state does not belong to the current user")
+		err = failure.Wrap("github.http.oauth.state.compare", err)
+		errlog.Http(logger, w, "oauth_state", failure.UnauthorizedError, err, u.Trace)
 		return
 	}
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		errlog.EmptyValueError(logger, "oauth_code", w, u.Trace)
+		err = failure.EmptyValue("oauth_code")
+		err = failure.Wrap("github.http.query.code.validate", err)
+		errlog.Http(logger, w, "oauth_code", failure.EmptyValueError, err, u.Trace)
 		return
 	}
 
 	token, err := h.GH_Config.Exchange(timeout, code)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "code_exchange", w, u.Trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "code_exchange", w, u.Trace, err)
+		err = failure.Wrap("github.http.oauth.code.exchange", err)
+		errlog.General(logger, w, "oauth_code_exchange", failure.InternalGeneralError, err, u.Trace)
 		return
 	}
 
@@ -302,17 +291,15 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	bodyGraphQl, err := sonic.Marshal(bodyGraphQlRaw)
 	if err != nil {
-		errlog.ParsingError(logger, "graphql_marshal_format", w, u.Trace, err)
+		err = failure.Wrap("github.json.graphql.query.marshal", err)
+		errlog.Json(logger, w, "graphql_query_marshal", u.Trace, err)
 		return
 	}
 
 	reqGraphQl, err := http.NewRequestWithContext(timeout, http.MethodPost, "https://api.github.com/graphql", bytes.NewReader(bodyGraphQl))
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "graphql_request", w, u.Trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "graphql_request", w, u.Trace, err)
+		err = failure.Wrap("github.http.graphql.request.create", err)
+		errlog.General(logger, w, "graphql_request_create", failure.InternalGeneralError, err, u.Trace)
 		return
 	}
 	reqGraphQl.Header.Set("Authorization", "Bearer "+token.AccessToken)
@@ -321,47 +308,39 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	respGraphQl, err := h.HTTP_Client.Do(reqGraphQl)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "graphql_response", w, u.Trace, err)
-			return
-		}
-		errlog.UnexpectedError(logger, "graphql_response", w, u.Trace, err)
+		err = failure.Wrap("github.http.graphql.request.send", err)
+		errlog.General(logger, w, "graphql_request_send", failure.InternalGeneralError, err, u.Trace)
 		return
 	}
 	defer func() {
 		err := respGraphQl.Body.Close()
 		if err != nil {
-			errlog.UnexpectedError(logger, "graphql_response_close", w, u.Trace, err)
+			err = failure.Wrap("github.http.graphql.response.close", err)
+			errlog.General(logger, w, "graphql_response_close", failure.InternalGeneralError, err, u.Trace)
 			return
 		}
 	}()
 
 	if respGraphQl.StatusCode != 200 {
+		err = failure.InternalGeneral("graphql_response", fmt.Sprintf("unexpected status code %d", respGraphQl.StatusCode))
+		err = failure.Wrap("github.http.graphql.response.status_check", err)
 		logger = logger.With().Int("response_code", respGraphQl.StatusCode).Logger()
-		errlog.UnexpectedError(logger, "graphql_response", w, u.Trace, err)
+		errlog.General(logger, w, "graphql_response", failure.InternalGeneralError, err, u.Trace)
 		return
 	}
-
-	var synErr *json.SyntaxError
-	var typeErr *json.UnmarshalTypeError
 
 	var graph *synchelper.User
 	err = sonic.ConfigDefault.NewDecoder(respGraphQl.Body).Decode(&graph)
 	if err != nil {
-		if errors.As(err, &synErr) {
-			errlog.JsonSyntaxError(logger, "graph_decode_payload", w, u.Trace, synErr)
-			return
-		}
-		if errors.As(err, &typeErr) {
-			errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
-			return
-		}
-		errlog.ParsingError(logger, "graph_decode_payload", w, u.Trace, err)
+		err = failure.Wrap("github.json.graphql.response.decode", err)
+		errlog.Json(logger, w, "graphql_response", u.Trace, err)
 		return
 	}
 
 	if graph.DatabaseID == nil {
-		errlog.EmptyValueError(logger, "github_id", w, u.Trace)
+		err = failure.EmptyValue("github_id")
+		err = failure.Wrap("github.http.graphql.user.existence_check", err)
+		errlog.Http(logger, w, "github_id", failure.EmptyValueError, err, u.Trace)
 		return
 	}
 
@@ -369,8 +348,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 	if graph.Email != "" {
 		email = &graph.Email
 	}
-
-	var pgErr *pgconn.PgError
 
 	err = h.Queries.InsertGitHubUser(timeout, db.InsertGitHubUserParams{
 		UserID:        u.ID,
@@ -388,18 +365,8 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:     pgtype.Timestamptz{Time: graph.CreatedAt, Valid: true},
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			errlog.DeadlineExceededError(logger, "user_insert", w, u.Trace, err)
-			return
-		}
-		if errors.Is(err, pgconn.ErrConnClosed) {
-			errlog.ErrConnClosed(logger, w, u.Trace, err)
-			return
-		}
-		if errors.As(err, &pgErr) {
-			errlog.PgConnError(logger, w, u.Trace, "user_insert_failed", pgErr, err)
-		}
-		errlog.UnexpectedError(logger, "user_insert", w, u.Trace, err)
+		err = failure.Wrap("github.database.user.insert", err)
+		errlog.Database(logger, w, "user_insert", u.Trace, err)
 		return
 	}
 
@@ -407,14 +374,14 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	parseStr := func(fullDatabaseId *string) (int64, error, string) {
 		if fullDatabaseId == nil || *fullDatabaseId == "" {
-			return 0, errors.New("Error: Required value 'fullDatabaseId' cannot be empty"), "_id_invalid"
+			return 0, failure.EmptyValue("fullDatabaseId"), "_id_invalid"
 		}
 		id, err := strconv.ParseInt(*fullDatabaseId, 10, 64)
 		if err != nil {
 			return 0, err, "_id_malformed"
 		}
 		if id <= 0 {
-			return 0, errors.New("Error: Value 'fullDatabaseId' cannot be 0 or negative"), "_id_format_invalid"
+			return 0, failure.Invalid("fullDatabaseId", "cannot be 0 or negative"), "_id_format_invalid"
 		}
 		return id, nil, ""
 	}
@@ -423,7 +390,8 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		for _, repo := range graph.Repository.Nodes {
 			repositoryId, err, code := parseStr(repo.FullDatabaseId)
 			if err != nil {
-				logger = logger.With().Str("repo_name", repo.Name).Str("repo_id", *repo.FullDatabaseId).Logger()
+				err = failure.Wrap("github.http.repository.id.validate", err)
+				logger = logger.With().Str("repo_name", repo.Name).Interface("repo_id", repo.FullDatabaseId).Logger()
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusBadRequest).
@@ -444,13 +412,14 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 					HtmlUrl:    repo.LicenseInfo.HtmlUrl,
 				})
 				if err != nil {
+					err = failure.Wrap("github.database.license.insert", err)
 					logger.Debug().
 						Err(err).
 						Int("status", http.StatusInternalServerError).
 						Str("code", "license_insert_failed").
 						Str("license_name", repo.LicenseInfo.Name).
 						Str("license_key", repo.LicenseInfo.Key).
-						Msg("license insertion failed")
+						Msg("failed to insert license")
 					continue
 				}
 			}
@@ -512,13 +481,14 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				PushedAt:           pushedAt,
 			})
 			if err != nil {
+				err = failure.Wrap("github.database.repository.insert", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusInternalServerError).
 					Str("code", "repo_insert_failed").
 					Str("repo_name", repo.Name).
 					Int64("repo_id", repositoryId).
-					Msg("repository insertion failed")
+					Msg("failed to insert repository")
 				continue
 			}
 
@@ -567,6 +537,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			secretBytes := make([]byte, 32)
 			if _, err := rand.Read(secretBytes); err != nil {
+				err = failure.Wrap("github.http.webhook.secret.generate", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusInternalServerError).
@@ -591,6 +562,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			bodyBytes, err := sonic.Marshal(webhookCreate)
 			if err != nil {
+				err = failure.Wrap("github.json.webhook.request.marshal", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusBadRequest).
@@ -604,6 +576,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			reqW, err := http.NewRequestWithContext(timeout, http.MethodPost, webhookURL, body)
 			if err != nil {
+				err = failure.Wrap("github.http.webhook.request.create", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusInternalServerError).
@@ -620,6 +593,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			_, err = h.RedisClient.Set(timeout, "oauth:github:webhook:secret:"+repoIDStr, secret, 0).Result()
 			if err != nil {
+				err = failure.Wrap("github.redis.webhook.secret.insert", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusInternalServerError).
@@ -630,6 +604,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			wasRemoved, err := h.RedisClient.Persist(timeout, "oauth:github:webhook:secret:"+repoIDStr).Result()
 			if err != nil {
+				err = failure.Wrap("github.redis.webhook.secret.ttl_remove", err)
 				logger.Debug().
 					Err(err).
 					Int("status", http.StatusInternalServerError).
@@ -639,7 +614,10 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !wasRemoved {
+				err = failure.InternalGeneral("webhook_secret_ttl", "the key does not exist or has no TTL to remove")
+				err = failure.Wrap("github.redis.webhook.secret.ttl_check", err)
 				logger.Debug().
+					Err(err).
 					Int("status", http.StatusInternalServerError).
 					Str("code", "webhook_secret_ttl_remove_failed").
 					Msg("failed to remove webhook secret TTL")
@@ -648,22 +626,16 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			respWeb, err := h.HTTP_Client.Do(reqW)
 			if err != nil {
-				errlog.UnexpectedError(logger, "webhook_request", w, u.Trace, err)
+				err = failure.Wrap("github.http.webhook.request.send", err)
+				errlog.General(logger, w, "webhook_request_send", failure.InternalGeneralError, err, u.Trace)
 				return
 			}
 
 			var reqWeb WebhookResponse
 			err = sonic.ConfigDefault.NewDecoder(respWeb.Body).Decode(&reqWeb)
 			if err != nil {
-				if errors.As(err, &synErr) {
-					errlog.JsonSyntaxError(logger, "webhook_request_payload", w, u.Trace, synErr)
-					return
-				}
-				if errors.As(err, &typeErr) {
-					errlog.JsonUnmarshalTypeError(logger, w, u.Trace, typeErr)
-					return
-				}
-				errlog.ParsingError(logger, "webhook_request_payload", w, u.Trace, err)
+				err = failure.Wrap("github.json.webhook.response.decode", err)
+				errlog.Json(logger, w, "webhook_response", u.Trace, err)
 				return
 			}
 
@@ -675,22 +647,16 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 			).Result()
 
 			if err != nil {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_id_insert_failed").
-					Msg("failed to insert webhook ID")
-
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Failed to insert webhook ID",
-					TraceID: u.Trace,
-				})
+				err = failure.Wrap("github.redis.webhook.hook_id.insert", err)
+				errlog.Redis(logger, w, "webhook_id_insert", err, u.Trace)
 				return
 			}
 
 			if !doesNotExist {
+				err = failure.Conflict("webhook_id")
+				err = failure.Wrap("github.redis.webhook.hook_id.existence_check", err)
 				logger.Debug().
+					Err(err).
 					Int("status", http.StatusConflict).
 					Str("code", "webhook_id_already_exists").
 					Msg("webhook ID already exists")
@@ -698,31 +664,15 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 			wasRemoved, err = h.RedisClient.Persist(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 			if err != nil {
-				logger.Error().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_id_ttl_remove_failed").
-					Msg("failed to remove webhook ID TTL")
-
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Failed to remove webhook ID TTL",
-					TraceID: u.Trace,
-				})
+				err = failure.Wrap("github.redis.webhook.hook_id.ttl_remove", err)
+				errlog.Redis(logger, w, "webhook_id_ttl_remove", err, u.Trace)
 				return
 			}
 
 			if !wasRemoved {
-				logger.Error().
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_id_ttl_remove_failed").
-					Msg("failed to remove webhook ID TTL")
-
-				lib.Pretty(w, http.StatusInternalServerError, lib.Error{
-					Code:    "INTERNAL_SERVER_ERROR",
-					Message: "Failed to remove webhook ID TTL",
-					TraceID: u.Trace,
-				})
+				err = failure.InternalGeneral("webhook_id_ttl", "the key does not exist or has no TTL to remove")
+				err = failure.Wrap("github.redis.webhook.hook_id.ttl_check", err)
+				errlog.General(logger, w, "webhook_id_ttl_remove", failure.InternalGeneralError, err, u.Trace)
 				return
 			}
 
