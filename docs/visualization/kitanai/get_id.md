@@ -6,7 +6,7 @@
     'textColor': '#ffffff'
   }
 }}%%
-flowchart BT;
+flowchart TB;
     Main("Go Main")
     API("Go API - chi router")
     Middleware("Middleware")

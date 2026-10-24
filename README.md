@@ -2,6 +2,8 @@
 
 > A high-performance developer data ETL pipeline and context engine designed to aggregate multi-platform user telemetry into PostgreSQL, providing rich, structured context for AI interactions.
 
+> To check how the architrecture works, [clicke me](https://github.com/shawnfrost25/prolepsis/tree/main/docs/visualization)
+
 ---
 
 ## Disclaimer
