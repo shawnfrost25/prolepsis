@@ -13,7 +13,7 @@ flowchart TB;
     GitHub("Github OAuth")
 
     Main-.->|"Registers routes and starts server"|API
-    Client-->|"Click GitHub OAuth button"|API
+    Client<-->|"Click GitHub OAuth button"|API
     API<-.->|"Execute function 'FetchContextInsideHandler'"|Middleware
     Middleware-->|"Execute Auth_Middleware"|AuthMiddleware
     AuthMiddleware-->|"Insert Context"|Context1-->LoggingMiddleware-->|"Insert Context"|Context2
