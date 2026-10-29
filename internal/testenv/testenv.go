@@ -15,6 +15,7 @@ import (
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
+// Executes "start" // we use it so we return and exit code (also to make defer run, since via exit they don't)
 func Main(m *testing.M) {
 	os.Exit(start(m))
 }

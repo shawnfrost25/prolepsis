@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
 	"strings"
 	"testing"
@@ -71,9 +72,9 @@ func (s *Server) seed(t *testing.T, name string) pgtype.UUID {
 	id, err := s.queries.InsertMockUser(context.Background(), db.InsertMockUserParams{
 		Name:         name,
 		Sex:          "prefer_not_to_specify",
-		BirthDate:    pgtype.Date{Time: time.Date(1999, 12, 06, 1, 1, 1, 1, time.Local)},
+		BirthDate:    pgtype.Date{Time: time.Date(1999, 12, 06, 1, 1, 1, 1, time.Local), Valid: true},
 		Email:        cleanName + "@gmail.com",
-		PasswordHash: "sheena_totsuki_standing_png",
+		PasswordHash: "sheena_totsuki_standing_png_I_know_it_makes_no_sense_but_it_gotta_be_above_60_characters_long",
 	})
 	if err != nil {
 		t.Fatalf("Failed to insert user in database error: %v", err)
@@ -88,7 +89,8 @@ func (s *Server) login(t *testing.T, userID pgtype.UUID) string {
 	m := make([]byte, 32)
 	rand.Read(m)
 	token := hex.EncodeToString(m)
-	_, err := s.red.Set(context.Background(), "session:token:"+token, userID.String(), 60*24*time.Hour).Result()
+	tokenHash := auth.HashToken(token)
+	_, err := s.red.Set(context.Background(), "session:token:"+tokenHash, userID.String(), 60*24*time.Hour).Result()
 	if err != nil {
 		t.Fatalf("Failed to insert session token inside redis: %v", err)
 	}

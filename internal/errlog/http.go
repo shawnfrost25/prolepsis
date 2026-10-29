@@ -21,7 +21,6 @@ func Http(logger zerolog.Logger, w http.ResponseWriter, subject string, kind fai
 	subjectMsg := strings.ReplaceAll(subject, "_", " ")
 
 	switch kind {
-
 	case failure.EmptyValueError:
 		logger.Warn().
 			Err(err).

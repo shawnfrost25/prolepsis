@@ -284,6 +284,9 @@ func Logger_Middleware(next http.Handler) http.Handler {
 
 		ctx := loggerReq.WithContext(r.Context())
 		ctx = context.WithValue(ctx, traceCtx, trace)
+		ctx = context.WithValue(ctx, ipCtx, userIP)
+		ctx = context.WithValue(ctx, methodCtx, r.Method)
+		ctx = context.WithValue(ctx, pathCtx, r.URL.Path)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 

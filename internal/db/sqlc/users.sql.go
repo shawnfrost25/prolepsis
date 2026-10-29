@@ -61,12 +61,13 @@ func (q *Queries) EmailForInfo(ctx context.Context, email string) (EmailForInfoR
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT name, display_name, bio, sex, location, birth_date, email, role, created_at
+SELECT id, name, display_name, bio, sex, location, birth_date, email, role, created_at
 FROM users
 WHERE id = $1
 `
 
 type GetUserByIDRow struct {
+	ID          pgtype.UUID
 	Name        string
 	DisplayName *string
 	Bio         *string
@@ -83,6 +84,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i GetUserByIDRow
 	err := row.Scan(
+		&i.ID,
 		&i.Name,
 		&i.DisplayName,
 		&i.Bio,

@@ -1,6 +1,6 @@
 -- An SQL code to fetch user information based on the given ID
 -- name: GetUserByID :one
-SELECT name, display_name, bio, sex, location, birth_date, email, role, created_at
+SELECT id, name, display_name, bio, sex, location, birth_date, email, role, created_at
 FROM users
 WHERE id = $1;
 
