@@ -1,47 +1,9 @@
--- Generated with the help of AI (like...obviously, who will spend their time for something THIS boring) - but some minor fixes were implemented by me (as wrong birth_dates and little bugs)
--- Random note -> Some birt dates were invented, since the author didn't know it too
-
--- We simply inser random users (from different fandoms and stuff) inside the database, only for the test
--- name: InsertDummiesInsideUsers :exec
-INSERT INTO users (id, name, sex, birth_date, email, password_hash, role)
-VALUES
-('00000000-0000-0000-0000-000000000001', 'Mimi Kagari', 'female', '2012-12-03', 'mimi@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'owner'),
-('00000000-0000-0000-0000-000000000002', 'Sheena Totsuki', 'female', '2012-11-14', 'sheena@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000003', 'Ari Maud', 'female', '2012-05-01', 'ari@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000004', 'Seiran Lizzy', 'female', '2012-04-07', 'lizzy@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000005', 'Airi Sezaki', 'female', '2004-07-20', 'airi@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000006', 'Hinako Hanamura', 'female', '2004-11-24', 'hinako@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'owner'),
-('00000000-0000-0000-0000-000000000007', 'Ichika Miyazono', 'female', '2003-04-12', 'ichika@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000008', 'Yoshimi Matsushita', 'female', '2004-07-20', 'yoshimi@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000009', 'Asya Shubina', 'female', '2008-05-14', 'asya@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000010', 'Vadim Garin', 'male', '2008-02-19', 'vadim@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000011', 'Tosya Lev', 'male', '2008-11-03', 'tosya@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000012', 'Ira Grachevskaya', 'female', '2008-09-17', 'ira@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000013', 'Marina Kaplan', 'female', '2008-07-28', 'marina@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000014', 'Leon Scott Kennedy', 'male', '1977-01-26', 'leon@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'worker'),
-('00000000-0000-0000-0000-000000000015', 'Ethan Winters', 'male', '1984-02-10', 'ethan@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'worker'),
-('00000000-0000-0000-0000-000000000016', 'Chris Redfield', 'male', '1973-08-22', 'chris@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'admin'),
-('00000000-0000-0000-0000-000000000017', 'Jill Valentine', 'female', '1975-02-14', 'jill@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000018', 'Hakurei Reimu', 'female', '1997-08-15', 'reimu@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000019', 'Marisa Kirisame', 'female', '1997-08-15', 'marisa@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000020', 'Sakuya Izayoi', 'female', '2002-08-11', 'sakuya@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000021', 'Sanae Kochiya', 'female', '2007-08-17', 'sanae@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000022', 'Kurumi Yoshizawa', 'female', '2008-10-15', 'kurumi@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000023', 'Naoi Manaka', 'female', '2008-06-02', 'naoi@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user'),
-('00000000-0000-0000-0000-000000000024', 'Loki Laufeyson', 'male', '1981-2-09', 'loki@test.com', '$2a$10$vRjMiLCoVTOLyUrj0k6K..J5McX9CTka2ab0vRgorpeWk.3OJE7mK', 'user');
-
--- name: InsertDummyGitHubUsers :exec
-INSERT INTO github_user (user_id, github_id, name, avatar_url, html_url, company, email, hireable, bio, followers, total_public_repos, total_private_repos, total_repos, created_at)
-VALUES
-('00000000-0000-0000-0000-000000000001', 10000001, 'mimikagari', 'https://avatars.githubusercontent.com/u/10000001', 'https://github.com/mimikagari', NULL, 'mimi@test.com', false, 'sheenas handholder', 42, 1, 0, 1, '2024-01-15 00:00:00+00'),
-('00000000-0000-0000-0000-000000000006', 10000006, 'hinakohanamura', 'https://avatars.githubusercontent.com/u/10000006', 'https://github.com/hinakohanamura', 'Bloom Pastry Shop', 'hinako@test.com', true, 'Head baker & dev. Waiting for Airi to come home (countryside)', 128, 1, 0, 1, '2024-03-22 00:00:00+00');
-
--- name: InsertDummyRepositories :exec
-INSERT INTO github_repo (github_id, repo_id, name, html_url, description, created_at, pushed_at, stars, watches, forks_count, main_language, license_key, topic, archived, visibility)
-VALUES
-(10000001, 5839201, 'sheena-sheena-sheena', 'https://github.com/mimikagari/sheena-sheena-sheena', 'sheena look i made a repo!! sheena sheena!!', '2024-01-15 10:00:00+00', '2026-09-12 14:30:00+00', 999, 999, 0, NULL, NULL, ARRAY['sheena', 'hug', 'cute'], false, 'public'),
-(10000006, 5839202, 'bloom-pastry-planner', 'https://github.com/hinakohanamura/bloom-pastry-planner', 'A web app for organizing bakery schedules, also loves Airi, a little too much to be wholesome', '2024-03-22 08:15:00+00', '2026-09-28 18:00:00+00', 256, 82, 30, 'TypeScript', NULL, ARRAY['baking', 'typescript', 'react', 'planner'], false, 'public');
-
--- We delete the data from users and sessions
--- name: TruncateEverythingBeforeTest :exec
-TRUNCATE TABLE users CASCADE;
+-- name: InsertMockUser :one
+INSERT INTO users(name, sex, birth_date, email, password_hash)
+VALUES(
+    sqlc.arg('name')::text,
+    sqlc.arg('sex')::text,
+    sqlc.arg('birth_date')::date,
+    sqlc.arg('email')::text,
+    sqlc.arg('password_hash')::text
+) RETURNING id;
