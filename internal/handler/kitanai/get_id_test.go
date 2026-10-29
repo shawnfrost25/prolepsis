@@ -1,6 +1,7 @@
 package kitanai
 
 import (
+	"encoding/json"
 	"net/http"
 	"prolepsis/internal/auth"
 	"prolepsis/internal/testenv"
@@ -81,6 +82,21 @@ func TestGetUserById(t *testing.T) {
 
 			if w.Code != tt.ExpectedStatus {
 				t.Fatalf("Given status: %d \nExpected status: %d \nResponse: %s", w.Code, tt.ExpectedStatus, w.Body.String())
+			}
+
+			if tt.ExpectedStatus == http.StatusOK {
+				var resp struct {
+					ID string `json:"id"`
+				}
+
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
+				if err != nil {
+					t.Fatalf("Given status: %d \nExpected status: %d \nResponse: %s", w.Code, tt.ExpectedStatus, w.Body.String())
+				}
+
+				if resp.ID != tt.ExpectedID.String() {
+					t.Fatalf("Givend id: %s \nExpected id: %s \nResponse: %s", resp.ID, tt.ExpectedID.String(), w.Body.String())
+				}
 			}
 		})
 	}
