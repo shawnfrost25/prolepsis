@@ -66,12 +66,17 @@ func (s *Server) do(t *testing.T, method string, endpoint string, authHeader str
 }
 
 // 'seed' inserts a mock user into the database, dynamically deriving the email address from the provided name to satisfy the unique constraint across test cases.
-func (s *Server) seed(t *testing.T, name string) pgtype.UUID {
+func (s *Server) seed(t *testing.T, name string, role string) pgtype.UUID {
 	t.Helper()
+
+	if role == "" {
+		role = "user"
+	}
 	cleanName := strings.ToLower(strings.ReplaceAll(name, " ", ""))
 	id, err := s.queries.InsertMockUser(context.Background(), db.InsertMockUserParams{
 		Name:         name,
 		DisplayName:  name,
+		Role:         db.UserRole(role),
 		Sex:          "prefer_not_to_specify",
 		BirthDate:    pgtype.Date{Time: time.Date(1999, 12, 06, 1, 1, 1, 1, time.Local), Valid: true},
 		Email:        cleanName + "@gmail.com",

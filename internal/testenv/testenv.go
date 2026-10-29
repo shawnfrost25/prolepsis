@@ -11,6 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 )
@@ -38,10 +40,12 @@ var (
 // -- -- We store the container handle 'pgc' inside the package-level variable 'pg'.
 // -- -- Then we use 'pgc' to generate 'dsnPgc' with all container connection parameters (formatted as 'postgres://test:test@localhost:49153/prolepsis_test?sslmode=disable').
 // -- -- We then store 'dsnPgc' inside the package-level variable 'dsn'.
-// -- -- Finally, we capture a snapshot of the current database state—functioning like a game save-point so we can restore back to a clean state before each test.
 // -- Phase 3:
 // -- -- We replicate the container lifecycle workflow for Redis (starting the container, retrieving its connection URI, and configuring the client).
 // -- -- Finally, we assign the *redis.Client to the package-level variable 'rdb' and execute all tests by returning 'm.Run()' (which evaluates to 0 if every test passes, or non-zero on failure).
+// -- Phase 4:
+// -- -- In this phase, we simply wire up river to run the migrations and be able to keep up with the database.
+// -- -- Finally, we capture a snapshot of the current database state—functioning like a game save-point so we can restore back to a clean state before each test.
 func start(m *testing.M) int {
 	// Phase 1:
 	ctx := context.Background()
@@ -89,12 +93,8 @@ func start(m *testing.M) int {
 		fmt.Fprintf(os.Stderr, "testenv: failed to get database dsn: %v\n", err)
 		return 1
 	}
-	dsn = dsnPgc
 
-	if err := pgc.Snapshot(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "testenv: failed to snapshot database: %v\n", err)
-		return 1
-	}
+	dsn = dsnPgc
 
 	// ----------
 	// Phase 3:
@@ -124,6 +124,43 @@ func start(m *testing.M) int {
 
 	rdb = redis.NewClient(redOpt)
 
+	// ----------
+	// Phase 4:
+
+	pgConf, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "testenv: failed to parse database uri: %v\n", err)
+		return 1
+	}
+
+	tempPool, err := pgxpool.NewWithConfig(ctx, pgConf)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "testenv: failed to create connection pool: %v\n", err)
+		return 1
+	}
+
+	migrator, err := rivermigrate.New(riverpgxv5.New(tempPool), nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "testenv: failed to create river migrator: %v", err)
+		tempPool.Close()
+		return 1
+	}
+
+	_, err = migrator.Migrate(ctx, rivermigrate.DirectionUp, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "testenv: failed to run river migration: %v", err)
+		tempPool.Close()
+		return 1
+	}
+
+	tempPool.Close()
+
+	if err := pgc.Snapshot(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "testenv: failed to snapshot database: %v\n", err)
+		tempPool.Close()
+		return 1
+	}
+
 	return m.Run()
 }
 
@@ -148,7 +185,7 @@ func New(t *testing.T) (*redis.Client, *pgxpool.Pool, *db.Queries) {
 
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
-		t.Fatalf("testenv: failed to create pgxpool: %v", err)
+		t.Fatalf("testenv: failed to create test pool: %v", err)
 	}
 
 	queries := db.New(pool)

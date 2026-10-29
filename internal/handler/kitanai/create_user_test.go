@@ -23,6 +23,7 @@ type UserPayload struct {
 }
 
 func cu(t *testing.T) *Server {
+	t.Helper()
 	rdb, pool, queries := testenv.New(t)
 	_ = godotenv.Load("../../../.env")
 	appPassword := os.Getenv("APPPASSWORD")
@@ -48,8 +49,11 @@ func cu(t *testing.T) *Server {
 func TestCreateUser(t *testing.T) {
 	s := cu(t)
 
-	s.seed(t, "Ari Maud")
-	_ = s.red.Set(context.Background(), "pending:registration:email:"+"arimaud@gmail.com", 1, 24*time.Hour)
+	s.seed(t, "Ari Maud", "")
+	_, err := s.red.Set(context.Background(), "pending:registration:email:"+"arimaud@gmail.com", 1, 24*time.Hour).Result()
+	if err != nil {
+		t.Fatalf("Failed to add rate limit: %v", err)
+	}
 
 	test := []struct {
 		Name           string

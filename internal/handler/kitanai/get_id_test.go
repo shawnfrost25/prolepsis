@@ -30,8 +30,8 @@ func gubi(t *testing.T) *Server {
 func TestGetUserById(t *testing.T) {
 	s := gubi(t)
 
-	mimiID := s.seed(t, "Mimi Kagari")
-	sheenaID := s.seed(t, "Sheena Totsuki")
+	mimiID := s.seed(t, "Mimi Kagari", "")
+	sheenaID := s.seed(t, "Sheena Totsuki", "")
 
 	generalToken := s.login(t, mimiID)
 
@@ -43,33 +43,33 @@ func TestGetUserById(t *testing.T) {
 		ExpectedID     pgtype.UUID
 	}{
 		{
-			Name:           "successfully fetching Sheena Totsuki",
+			Name:           "Successfully fetching Sheena Totsuki",
 			Endpoint:       "/users/" + sheenaID.String(),
 			Token:          generalToken,
 			ExpectedStatus: 200,
 			ExpectedID:     sheenaID,
 		},
 		{
-			Name:           "successfully fetching Mimi Kagari",
+			Name:           "Successfully fetching Mimi Kagari",
 			Endpoint:       "/users/" + mimiID.String(),
 			Token:          generalToken,
 			ExpectedStatus: 200,
 			ExpectedID:     mimiID,
 		},
 		{
-			Name:           "failind due to non-existent id",
+			Name:           "Failing due to non-existent id",
 			Endpoint:       "/users/7ca58bef-1d42-49ba-9376-c1de5502f838",
 			Token:          generalToken,
 			ExpectedStatus: 404,
 		},
 		{
-			Name:           "failed due to malformed id",
+			Name:           "Failed due to malformed id",
 			Endpoint:       "/users/invalid_id",
 			Token:          generalToken,
 			ExpectedStatus: 400,
 		},
 		{
-			Name:           "failing due to missing auth token",
+			Name:           "Failing due to missing token",
 			Endpoint:       "/users/" + mimiID.String(),
 			Token:          "",
 			ExpectedStatus: 401,

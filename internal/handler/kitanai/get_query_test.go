@@ -28,9 +28,9 @@ func gubq(t *testing.T) *Server {
 func TestGetUserByQuery(t *testing.T) {
 	s := gubq(t)
 
-	mimiId := s.seed(t, "Mimi Kagari")
-	s.seed(t, "Sheena Totsuki")
-	s.seed(t, "Ari Maud")
+	mimiId := s.seed(t, "Mimi Kagari", "")
+	s.seed(t, "Sheena Totsuki", "")
+	s.seed(t, "Ari Maud", "")
 
 	generalToken := s.login(t, mimiId)
 
@@ -47,25 +47,25 @@ func TestGetUserByQuery(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 		},
 		{
-			Name:           "Successuflly fetch all the users",
+			Name:           "Successufully fetch all the users",
 			Endpoint:       "/users?sex=prefer_not_to_specify",
 			Token:          generalToken,
 			ExpectedStatus: http.StatusOK,
 		},
 		{
-			Name:           "Fail due to missing query",
+			Name:           "Failing due to missing query",
 			Endpoint:       `/users`,
 			Token:          generalToken,
 			ExpectedStatus: http.StatusBadRequest,
 		},
 		{
-			Name:           "Fail due to unexistent user",
+			Name:           "Failing due to unexistent user",
 			Endpoint:       "/users?display_name=Lizzy%20Seiran",
 			Token:          generalToken,
 			ExpectedStatus: http.StatusNotFound,
 		},
 		{
-			Name:           "Fail due to missing token",
+			Name:           "Failing due to missing token",
 			Endpoint:       "/users?email=mimikagari@gmail.com",
 			Token:          "",
 			ExpectedStatus: http.StatusUnauthorized,

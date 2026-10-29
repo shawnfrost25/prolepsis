@@ -1,7 +1,8 @@
 ```mermaid
 flowchart TB;
     Database[("PostgreSQL \npostgres:18-alpine")]
-    Redis[("Redis \nredis:7-alpine")]
+    Redis[("Redis \nredis:8.0-alpine")]
+    DatabaseRiver[("PostgreSQL \npostgres:18-alpine")]
     Execute(["Run Kitanai's tests"])
     ExecuteMain[["Execute main_test.go"]]
     ExecuteTE[["Execute testenv.go"]]
@@ -14,9 +15,10 @@ flowchart TB;
     ReturnExitCode(["Returns exit code 1"])
     Phase2("Phase 2")
     Phase3("Phase 3")
+    Phase4("Phase 4")
     InsertValue(["--- Fills the package-level variables ---\nrdb (redis.Client) \ndsn (database URL) \npg (postgres.Container)"])
     Test("Test function")
-    NewServer("Startup Function")
+    NewServer("newStart")
     TestEnvNew("testenv.New\nCalls 't.Fatal' if 'TestMain' was not used")
     TestEnvNewSnapshot("Uses 'Restore' to roll back to the latest snapshot, keeping the database clean")
     TestEnvNewFlushAll("Uses 'FlushAll' to wipe all Redis entries, keeping the cache clean")
@@ -40,10 +42,13 @@ flowchart TB;
     Found-->|"Yes"|Phase2
     Found-->|"No"|ReturnExitCode
     Phase2-->|"Creates the PostgreSQL container and applies the migrations"|Database
-    Database-->|"On failure (container, DSN or snapshot)"|ReturnExitCode
-    Database-->|"Stores the 'dsn' and takes a database snapshot for later 'Restore' calls"|Phase3
+    Database-->|"On failure (container or DSN)"|ReturnExitCode
+    Database-->|"Stores the 'dsn'"|Phase3
     Phase3-->|"Creates the Redis container"|Redis
     Redis-->|"On failure (container, URI or client options)"|ReturnExitCode
+    Redis-.->|"Stores the 'rdb' client"|Phase4
+    Phase4-.->|"Runs River's migrations through a temporary pool, then takes a database snapshot for later 'Restore' calls"|DatabaseRiver
+    DatabaseRiver-.->|"On failure (config, pool, migrator, migration or snapshot)"|ReturnExitCode
     Start-->InsertValue-->|"Runs 'm.Run()', which executes each function 'Testxxx'"|Test
     Test-->|"Executes function 'newStart'"|NewServer
     NewServer<-->|"Executes function 'testenv.New'"|TestEnvNew
@@ -67,32 +72,4 @@ flowchart TB;
     style MainTest fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
     style Start fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
     style Phase1 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
-    style Phase2 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
-    style Phase3 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
-
-    style Phase1Fetch fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style ExecuteHT fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Test fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style NewServer fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style TestEnvNew fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style TestEnvNewSnapshot fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style TestEnvNewFlushAll fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Seed fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Login fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Do fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Validation fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-    style Pass fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
-
-    style Database fill:#F3E8FF,stroke:#7E22CE,color:#581C87,stroke-width:2px
-    style Redis fill:#F3E8FF,stroke:#7E22CE,color:#581C87,stroke-width:2px
-
-    style ReturnExitCode fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D,stroke-width:2px
-    style Fatalf fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D,stroke-width:2px
-
-    style InsertValue fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
-    style TestEnvNewReturn fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
-    style NewServerReturn fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
-
-    style Found fill:#FEF3C7,stroke:#B45309,color:#78350F,stroke-width:2px
-    style Status fill:#FEF3C7,stroke:#B45309,color:#78350F,stroke-width:2px
-```
+    style Phase2
