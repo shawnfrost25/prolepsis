@@ -40,6 +40,13 @@ func (h *Handler) GetUserByQuery(w http.ResponseWriter, r *http.Request) {
 	birthQuery := q.Get("birth_date")
 	roleQuery := q.Get("role")
 
+	if displayQuery == "" && locationQuery == "" && sexQuery == "" && birthQuery == "" && roleQuery == "" {
+		err := failure.EmptyValue("query_parameters")
+		err = failure.Wrap("kitanai.http.prameter.query.validate", err)
+		errlog.Http(logger, w, "query_parameters", failure.EmptyValueError, err, u.Trace)
+		return
+	}
+
 	logger.Debug().
 		Bool("display_name_filter", displayQuery != "").
 		Bool("location_filter", locationQuery != "").

@@ -12,18 +12,20 @@ import (
 )
 
 const insertMockUser = `-- name: InsertMockUser :one
-INSERT INTO users(name, sex, birth_date, email, password_hash)
+INSERT INTO users(name, display_name, sex, birth_date, email, password_hash)
 VALUES(
     $1::text,
     $2::text,
-    $3::date,
-    $4::text,
-    $5::text
+    $3::text,
+    $4::date,
+    $5::text,
+    $6::text
 ) RETURNING id
 `
 
 type InsertMockUserParams struct {
 	Name         string
+	DisplayName  string
 	Sex          string
 	BirthDate    pgtype.Date
 	Email        string
@@ -33,6 +35,7 @@ type InsertMockUserParams struct {
 func (q *Queries) InsertMockUser(ctx context.Context, arg InsertMockUserParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, insertMockUser,
 		arg.Name,
+		arg.DisplayName,
 		arg.Sex,
 		arg.BirthDate,
 		arg.Email,

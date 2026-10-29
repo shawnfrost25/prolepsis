@@ -43,7 +43,7 @@ func TestGetUserById(t *testing.T) {
 		ExpectedID     pgtype.UUID
 	}{
 		{
-			Name:           "succesfully fetching Sheena Totsuki",
+			Name:           "successfully fetching Sheena Totsuki",
 			Endpoint:       "/users/" + sheenaID.String(),
 			Token:          generalToken,
 			ExpectedStatus: 200,

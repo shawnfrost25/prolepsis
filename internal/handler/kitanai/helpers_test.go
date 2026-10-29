@@ -71,6 +71,7 @@ func (s *Server) seed(t *testing.T, name string) pgtype.UUID {
 	cleanName := strings.ToLower(strings.ReplaceAll(name, " ", ""))
 	id, err := s.queries.InsertMockUser(context.Background(), db.InsertMockUserParams{
 		Name:         name,
+		DisplayName:  name,
 		Sex:          "prefer_not_to_specify",
 		BirthDate:    pgtype.Date{Time: time.Date(1999, 12, 06, 1, 1, 1, 1, time.Local), Valid: true},
 		Email:        cleanName + "@gmail.com",
@@ -87,7 +88,7 @@ func (s *Server) seed(t *testing.T, name string) pgtype.UUID {
 func (s *Server) login(t *testing.T, userID pgtype.UUID) string {
 	t.Helper()
 	m := make([]byte, 32)
-	rand.Read(m)
+	_, _ = rand.Read(m)
 	token := hex.EncodeToString(m)
 	tokenHash := auth.HashToken(token)
 	_, err := s.red.Set(context.Background(), "session:token:"+tokenHash, userID.String(), 60*24*time.Hour).Result()

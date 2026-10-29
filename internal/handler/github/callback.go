@@ -500,8 +500,8 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				go func() {
 					defer wg.Done()
 					for _, pullRequest := range repo.PullRequest.Nodes {
-						failed := synchelper.PullRequestCallback(logger, pullRequest, timeout, repositoryId, *graph.DatabaseID, h.Queries)
-						if failed {
+						// returns 'true' (meaning something failed) - we continue
+						if synchelper.PullRequestCallback(logger, pullRequest, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
 							continue
 						}
 					}
@@ -512,8 +512,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				go func() {
 					defer wg.Done()
 					for _, issue := range repo.Issues.Nodes {
-						failed := synchelper.IssueCallback(logger, issue, timeout, repositoryId, *graph.DatabaseID, h.Queries)
-						if failed {
+						if synchelper.IssueCallback(logger, issue, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
 							continue
 						}
 					}
@@ -524,8 +523,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				go func() {
 					wg.Done()
 					for _, release := range repo.Releases.Nodes {
-						failed := synchelper.ReleaseCallback(logger, release, timeout, repositoryId, *graph.DatabaseID, h.Queries)
-						if failed {
+						if synchelper.ReleaseCallback(logger, release, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
 							continue
 						}
 					}
