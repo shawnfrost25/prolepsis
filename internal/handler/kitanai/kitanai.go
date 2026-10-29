@@ -11,7 +11,8 @@ import (
 )
 
 type Mailer struct {
-	ApiKey string
+	Email       string
+	AppPassword string
 }
 
 type Handler struct {

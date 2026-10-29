@@ -52,19 +52,19 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var missingFields []string
-	if req.Name == nil {
+	if req.Name == nil || *req.Name == "" {
 		missingFields = append(missingFields, "name")
 	}
-	if req.Sex == nil {
+	if req.Sex == nil || *req.Sex == "" {
 		missingFields = append(missingFields, "sex")
 	}
-	if req.Email == nil {
+	if req.Email == nil || *req.Email == "" {
 		missingFields = append(missingFields, "email")
 	}
 	if req.BirthDate == nil {
 		missingFields = append(missingFields, "birth_date")
 	}
-	if req.Password == nil {
+	if req.Password == nil || *req.Password == "" {
 		missingFields = append(missingFields, "password")
 	}
 	if len(missingFields) != 0 {
@@ -102,7 +102,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userExists {
-		// doesn_exist = true (if the rate limit get inserted); else it will be false, meaning the rate limit is already in between the entries
+		// "doesn_exist = true" means that SetNX inserted the entries to Redis (meaning there was no rate limit)
 		doesnt_exists, err := h.RedisClient.SetNX(timeout, "pending:registration:email:"+*req.Email, 1, 24*time.Hour).Result()
 		// If an error happened while trying to insert the rate limited email
 		if err != nil {
@@ -111,7 +111,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// If the email rate limit doesn't exists, we send a warning email (the rate limit get created)
+		// If the email rate limit doesn't exists (it returns true if it inserted stuff), we send a warning email (the rate limit get created)
 		if doesnt_exists {
 			subject := fmt.Sprintf("[%s] Security notice: Registration attempt", appName)
 			message := fmt.Sprintf(
@@ -131,7 +131,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 				appName,
 			)
 
-			err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
+			err = lib.SendEmail(emailTimeout, logger, h.Mailer.Email, h.Mailer.AppPassword, *req.Email, subject, message)
 			if err != nil {
 				err = failure.Wrap("kitanai.http.email.send", err)
 				errlog.General(logger, w, "email_send", failure.InternalGeneralError, err, trace)
@@ -172,7 +172,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		errlog.Http(logger, w, "password_hash", failure.GenerationError, err, trace)
 		return
 	}
-	err = lib.SendEmail(emailTimeout, logger, h.Mailer.ApiKey, *req.Email, subject, message)
+	err = lib.SendEmail(emailTimeout, logger, h.Mailer.Email, h.Mailer.AppPassword, *req.Email, subject, message)
 	if err != nil {
 		err = failure.Wrap("kitanai.http.email.send", err)
 		errlog.General(logger, w, "email_send", failure.InternalGeneralError, err, trace)

@@ -35,9 +35,13 @@ func main() {
 	if databaseUrl == "" {
 		panic("missing 'DATABASE_URL' inside .env")
 	}
-	apiKey := os.Getenv("RESEND_API_KEY")
-	if apiKey == "" {
-		panic("missing 'APP_PASSWORD' inside .env")
+	appPassword := os.Getenv("APPPASSWORD")
+	if appPassword == "" {
+		panic("missing 'APPPASSWORD' inisde .env")
+	}
+	email := os.Getenv("EMAIL")
+	if email == "" {
+		panic("missing 'EMAIL' inside .env")
 	}
 	grpcAddr := os.Getenv("GRPC_PDF_ADDRESS")
 	if grpcAddr == "" {
@@ -94,7 +98,8 @@ func main() {
 	auth.Init(queries, redisClient)
 
 	values := kitanai.Mailer{
-		ApiKey: apiKey,
+		AppPassword: appPassword,
+		Email:       email,
 	}
 
 	// This is on which port Rust will listen

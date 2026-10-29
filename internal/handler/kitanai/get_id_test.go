@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func newStart(t *testing.T) *Server {
+func gubi(t *testing.T) *Server {
 	t.Helper()
 	rdb, pool, queries := testenv.New(t)
 
@@ -28,7 +28,7 @@ func newStart(t *testing.T) *Server {
 }
 
 func TestGetUserById(t *testing.T) {
-	s := newStart(t)
+	s := gubi(t)
 
 	mimiID := s.seed(t, "Mimi Kagari")
 	sheenaID := s.seed(t, "Sheena Totsuki")

@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func newServer(t *testing.T) *Server {
+func gubq(t *testing.T) *Server {
 	t.Helper()
 	rdb, pool, queries := testenv.New(t)
 
@@ -26,7 +26,7 @@ func newServer(t *testing.T) *Server {
 }
 
 func TestGetUserByQuery(t *testing.T) {
-	s := newServer(t)
+	s := gubq(t)
 
 	mimiId := s.seed(t, "Mimi Kagari")
 	s.seed(t, "Sheena Totsuki")

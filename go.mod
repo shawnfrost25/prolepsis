@@ -12,7 +12,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mileusna/useragent v1.3.5
 	github.com/redis/go-redis/v9 v9.22.0
-	github.com/resend/resend-go/v2 v2.28.0
 	github.com/riverqueue/river v0.47.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0
 	github.com/rs/zerolog v1.35.1

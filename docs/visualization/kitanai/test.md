@@ -16,7 +16,7 @@ flowchart TB;
     Phase3("Phase 3")
     InsertValue(["--- Fills the package-level variables ---\nrdb (redis.Client) \ndsn (database URL) \npg (postgres.Container)"])
     Test("Test function")
-    NewServer("newStart")
+    NewServer("Startup Function")
     TestEnvNew("testenv.New\nCalls 't.Fatal' if 'TestMain' was not used")
     TestEnvNewSnapshot("Uses 'Restore' to roll back to the latest snapshot, keeping the database clean")
     TestEnvNewFlushAll("Uses 'FlushAll' to wipe all Redis entries, keeping the cache clean")

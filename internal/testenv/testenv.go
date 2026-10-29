@@ -98,7 +98,7 @@ func start(m *testing.M) int {
 
 	// ----------
 	// Phase 3:
-	rd, err := tcredis.Run(ctx, "redis:7-alpine")
+	rd, err := tcredis.Run(ctx, "redis:8.0-alpine")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "testenv: failed to start redis container: %v\n", err)
 		return 1
