@@ -13,6 +13,8 @@ CREATE TABLE "public"."github_webhook_deliveries" (
   "delivery_id" uuid NOT NULL,
   CONSTRAINT "github_webhook_deliveries_delivery_id_pkey" PRIMARY KEY ("delivery_id")
 );
+-- Rename the legacy "push_webhook" primary key before creating "push_requests"
+ALTER TABLE "public"."push_webhook" RENAME CONSTRAINT "push_requests_id_pkey" TO "push_webhook_id_pkey";
 -- Create "push_requests" table
 CREATE TABLE "public"."push_requests" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
