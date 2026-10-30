@@ -58,13 +58,8 @@ jobs:
     runs-on: ubuntu-22.04
     environment: staging
     env:
-      DATABASE_URL: "${{ secrets.DATABASE_URL }}"
-      FROM_EMAIL: "${{ secrets.FROM_EMAIL }}"
-      RESEND_API_KEY: "${{ secrets.RESEND_API_KEY }}"
-      GRPC_PDF_ADDRESS: "${{ secrets.GRPC_PDF_ADDRESS }}"
-      REDIS_PASSWORD: "${{ secrets.REDIS_PASSWORD }}"
-      REDIS_ADDR: "${{ secrets.REDIS_ADDR }}"
-      GITHUB_TOKEN: "${{ secrets.PAT }}"
+      APPPASSWORD: "${{ secrets.APPPASSWORD }}"
+      EMAIL: "${{ secrets.EMAIL }}"
     steps:
       - name: "Check out repo code"
         uses: actions/checkout@v4
@@ -74,43 +69,9 @@ jobs:
         with:
           go-version: "${{ env.GO_VERSION }}"
 
-      - name: "Start everything via docker compose"
-        env:
-          POSTGRES_USER: "${{ secrets.POSTGRES_USER }}"
-          PGUSER: "${{ secrets.PGUSER }}"
-          POSTGRES_DB: "${{ secrets.POSTGRES_DB }}"
-          POSTGRES_PASSWORD: "${{ secrets.POSTGRES_PASSWORD }}"
-        run: |
-          docker compose up -d
-
-      - name: "Downloading Atlas"
-        run: |
-          curl -sSf https://atlasgo.sh | sh
-
-      - name: "Running Atlas"
-        run: |
-          atlas migrate apply --dir "file://./internal/db/migrations" --url "${{ env.DATABASE_URL }}"
-
-      - name: "Downloading 'redis-cli'"
-        run: |
-          sudo apt-get update && sudo apt-get install -y redis-tools
-
-      - name: "Downloading River"
-        run: |
-          go install github.com/riverqueue/river/cmd/river@v0.47.0
-
-      - name: "Running River migration"
-        run: |
-          river migrate-up --database-url "${{ env.DATABASE_URL }}"
-
       - name: "Run code tester"
         run: |
-          go test -p 1 -race ./...
-
-      - name: "Close docker compose connection"
-        if: always()
-        run: |
-          docker compose down --remove-orphans --rmi local
+          go test -v -race ./...
   trivy-path:
     runs-on: ubuntu-22.04
     environment: staging
