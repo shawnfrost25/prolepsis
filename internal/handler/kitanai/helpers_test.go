@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Server struct {
@@ -69,6 +70,11 @@ func (s *Server) do(t *testing.T, method string, endpoint string, authHeader str
 func (s *Server) seed(t *testing.T, name string, role string) pgtype.UUID {
 	t.Helper()
 
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("Sheena"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("Failed to encrypt password: %v", err)
+	}
+
 	if role == "" {
 		role = "user"
 	}
@@ -80,7 +86,7 @@ func (s *Server) seed(t *testing.T, name string, role string) pgtype.UUID {
 		Sex:          "prefer_not_to_specify",
 		BirthDate:    pgtype.Date{Time: time.Date(1999, 12, 06, 1, 1, 1, 1, time.Local), Valid: true},
 		Email:        cleanName + "@gmail.com",
-		PasswordHash: "sheena_totsuki_standing_png_I_know_it_makes_no_sense_but_it_gotta_be_above_60_characters_long",
+		PasswordHash: string(passwordHash),
 	})
 	if err != nil {
 		t.Fatalf("Failed to insert user in database error: %v", err)
