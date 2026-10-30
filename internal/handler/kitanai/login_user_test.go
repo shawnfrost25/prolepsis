@@ -9,11 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 func lu(t *testing.T) *Server {
 	t.Helper()
 	rdb, pool, queries := testenv.New(t)
@@ -37,12 +32,12 @@ func TestLoginUser(t *testing.T) {
 	test := []struct {
 		Name           string
 		ExpectedStatus int
-		Body           loginRequest
+		Body           LoginRequest
 	}{
 		{
 			Name:           "Successfully logging",
 			ExpectedStatus: http.StatusOK,
-			Body: loginRequest{
+			Body: LoginRequest{
 				Email:    "mimikagari@gmail.com",
 				Password: "Sheena",
 			},
@@ -50,7 +45,7 @@ func TestLoginUser(t *testing.T) {
 		{
 			Name:           "Failing due to non-exisiting account",
 			ExpectedStatus: http.StatusNotFound,
-			Body: loginRequest{
+			Body: LoginRequest{
 				Email:    "sheenatotsuki@gmail.com",
 				Password: "Sheena",
 			},
@@ -58,7 +53,7 @@ func TestLoginUser(t *testing.T) {
 		{
 			Name:           "Failing due to invalid password",
 			ExpectedStatus: http.StatusUnauthorized,
-			Body: loginRequest{
+			Body: LoginRequest{
 				Email:    "mimikagari@gmail.com",
 				Password: "Mimi",
 			},
@@ -66,7 +61,7 @@ func TestLoginUser(t *testing.T) {
 		{
 			Name:           "Failing due to missing body",
 			ExpectedStatus: http.StatusBadRequest,
-			Body:           loginRequest{},
+			Body:           LoginRequest{},
 		},
 	}
 
