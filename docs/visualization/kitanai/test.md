@@ -72,4 +72,33 @@ flowchart TB;
     style MainTest fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
     style Start fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
     style Phase1 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
-    style Phase2
+    style Phase2 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
+    style Phase3 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
+    style Phase4 fill:#DDF4F0,stroke:#0F766E,color:#134E4A,stroke-width:2px
+
+    style Phase1Fetch fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style ExecuteHT fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Test fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style NewServer fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style TestEnvNew fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style TestEnvNewSnapshot fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style TestEnvNewFlushAll fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Seed fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Login fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Do fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Validation fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+    style Pass fill:#E8F5E9,stroke:#2E7D32,color:#14532D,stroke-width:2px
+
+    style Database fill:#F3E8FF,stroke:#7E22CE,color:#581C87,stroke-width:2px
+    style Redis fill:#F3E8FF,stroke:#7E22CE,color:#581C87,stroke-width:2px
+    style DatabaseRiver fill:#F3E8FF,stroke:#7E22CE,color:#581C87,stroke-width:2px
+
+    style ReturnExitCode fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D,stroke-width:2px
+    style Fatalf fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D,stroke-width:2px
+
+    style InsertValue fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
+    style TestEnvNewReturn fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
+    style NewServerReturn fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:2px
+
+    style Found fill:#FEF3C7,stroke:#B45309,color:#78350F,stroke-width:2px
+    style Status fill:#FEF3C7,stroke:#B45309,color:#78350F,stroke-width:2px
