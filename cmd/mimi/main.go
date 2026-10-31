@@ -189,11 +189,11 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(auth.Auth_Middleware)
 				r.With(authLimiter).Post("/github/redirect", g.GitHubRedirect)
-				r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Post("/github/webhook", g.GitHubWebhook)
+				r.With(authLimiter).Get("/github/callback", g.GitHubCallback)
 			})
 		})
 	})
