@@ -1,0 +1,2410 @@
+{
+    "data": {
+        "viewer": {
+            "login": "shawnfrost25",
+            "avatarUrl": "https://avatars.githubusercontent.com/u/269482865?u=9a18600258a36765af2a14dfcae45edfb3af8762&v=4",
+            "bio": "Smth catchy for later",
+            "company": null,
+            "createdAt": "2026-03-19T14:14:54Z",
+            "email": "shawnfrost250@gmail.com",
+            "followers": {
+                "totalCount": 3
+            },
+            "databaseId": 269482865,
+            "status": {
+                "message": "???"
+            },
+            "isHireable": false,
+            "url": "https://github.com/shawnfrost25",
+            "repositories": {
+                "totalCount": 4,
+                "nodes": [
+                    {
+                        "name": "FrostOps-Lab",
+                        "isArchived": true,
+                        "createdAt": "2026-05-02T13:22:23Z",
+                        "fullDatabaseId": "1227285378",
+                        "description": "A repository of personal projects, documentation, and experiments that capture my small steps in learning, gradually building into a broader technical portfolio.",
+                        "forkCount": 0,
+                        "url": "https://github.com/shawnfrost25/FrostOps-Lab",
+                        "primaryLanguage": {
+                            "name": "Python"
+                        },
+                        "pushedAt": "2026-07-15T06:03:22Z",
+                        "stargazerCount": 1,
+                        "visibility": "PUBLIC",
+                        "watchers": {
+                            "totalCount": 0
+                        },
+                        "languages": {
+                            "nodes": [
+                                {
+                                    "name": "Shell"
+                                },
+                                {
+                                    "name": "Python"
+                                },
+                                {
+                                    "name": "Makefile"
+                                }
+                            ]
+                        },
+                        "repositoryTopics": {
+                            "nodes": []
+                        },
+                        "licenseInfo": {
+                            "name": "MIT License",
+                            "body": "MIT License\n\nCopyright (c) [year] [fullname]\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+                            "key": "mit",
+                            "spdxId": "MIT",
+                            "url": "http://choosealicense.com/licenses/mit/",
+                            "id": "MDc6TGljZW5zZTEz"
+                        },
+                        "pullRequests": {
+                            "nodes": []
+                        },
+                        "issues": {
+                            "nodes": []
+                        },
+                        "releases": {
+                            "totalCount": 0,
+                            "nodes": []
+                        },
+                        "object": {
+                            "text": "# FrostOps-Lab\n\nWell, this repository used to replicate little steps towards DevOps—sadly, no preference remains unhalted forever.\n\nI noticed that I started liking the idea of working with something more advanced... like AI!—while keeping some DevOps quirks.\n\nI had a LOT of plans for this repository. I thought about deleting the whole \"sentinel-cli\" and calling it \"cruddy\", it had much more value in my eyes. What \"cruddy\" was meant to be:\n*   Based on reading logs or any messy output and making a human-readable output on the terminal (using the Charmbracelet ecosystem).\n*   Meant to have `cruddy db <databaseName>` - this would have run that database automatically.\n*   The human-readable output wasn't just a simplified version, but included:\n    *   **The Error**\n    *   **The Cause**\n    *   **The Recommendation**\n    *   **The Fix** (if it had a command to fix it)\n\nBut whatever, it's not like the skills I learned over time will disappear into thin air!\n\no7\n"
+                        }
+                    },
+                    {
+                        "name": "prolepsis",
+                        "isArchived": false,
+                        "createdAt": "2026-09-04T07:43:23Z",
+                        "fullDatabaseId": "1356850537",
+                        "description": "A multi-source developer data ETL pipeline built with Go, PostgreSQL, and a Rust gRPC sidecar. Pre-fetches and normalizes profile metrics from GitHub, LinkedIn, Stack Overflow, LeetCode, etc., to provide instant SQL context for AI pipelines.",
+                        "forkCount": 0,
+                        "url": "https://github.com/shawnfrost25/prolepsis",
+                        "primaryLanguage": {
+                            "name": "Go"
+                        },
+                        "pushedAt": "2026-10-31T10:25:17Z",
+                        "stargazerCount": 1,
+                        "visibility": "PUBLIC",
+                        "watchers": {
+                            "totalCount": 1
+                        },
+                        "languages": {
+                            "nodes": [
+                                {
+                                    "name": "PLpgSQL"
+                                },
+                                {
+                                    "name": "Go"
+                                },
+                                {
+                                    "name": "Rust"
+                                },
+                                {
+                                    "name": "Makefile"
+                                }
+                            ]
+                        },
+                        "repositoryTopics": {
+                            "nodes": [
+                                {
+                                    "topic": {
+                                        "name": "ai-context"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "chi"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "docker"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "etl"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "github"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "golang"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "grpc"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "hcl"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "open-tofu"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "pgx"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "pipeline"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "postgresql"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "rust"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "sidecar"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "sqlc"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "stackoverflow"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "redis"
+                                    }
+                                },
+                                {
+                                    "topic": {
+                                        "name": "river"
+                                    }
+                                }
+                            ]
+                        },
+                        "licenseInfo": {
+                            "name": "MIT License",
+                            "body": "MIT License\n\nCopyright (c) [year] [fullname]\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+                            "key": "mit",
+                            "spdxId": "MIT",
+                            "url": "http://choosealicense.com/licenses/mit/",
+                            "id": "MDc6TGljZW5zZTEz"
+                        },
+                        "pullRequests": {
+                            "nodes": [
+                                {
+                                    "additions": 4,
+                                    "author": {
+                                        "login": "copilot-swe-agent"
+                                    },
+                                    "body": "## Summary\n- Rename the legacy `push_webhook` primary-key constraint before creating `push_requests`.\n- Update `atlas.sum` for the migration change.\n\n## Validation\n- `go test -p 1 ./...`",
+                                    "changedFiles": 2,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5064354067",
+                                    "deletions": 2,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 2,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/prolepsis/pull/2",
+                                    "title": "Fix push request migration constraint collision",
+                                    "createdAt": "2026-10-29T07:52:47Z",
+                                    "updatedAt": "2026-10-29T08:05:44Z",
+                                    "closedAt": "2026-10-29T08:05:44Z",
+                                    "mergedAt": "2026-10-29T08:05:44Z"
+                                }
+                            ]
+                        },
+                        "issues": {
+                            "nodes": []
+                        },
+                        "releases": {
+                            "totalCount": 0,
+                            "nodes": []
+                        },
+                        "object": {
+                            "text": "# Prolepsis\n\n> A high-performance developer data ETL pipeline and context engine designed to aggregate multi-platform user telemetry into PostgreSQL, providing rich, structured context for AI interactions.\n\n> To check how the architrecture works, [clicke me](https://github.com/shawnfrost25/prolepsis/tree/main/docs/visualization)\n\n---\n\n## Disclaimer\n\n**Note:** This project is under active development. Core features are being implemented and tested rapidly, so APIs and functionality may break between commits as the architecture evolves. Most of the test and functions are temporary—only when the README.md is fully updated everything will be considered \"finale-finale.\"\n\n---\n\n## Core Purpose\n\n**Prolepsis** is an active ETL (Extract, Transform, Load) backend engineered to continuously fetch, normalize, and store a user's digital footprint across multiple platforms. By centralizing this data inside a structured PostgreSQL database, the system serves as a rich context provider, giving AI models deep, accurate visibility into the user's background, repositories, coding activity, and professional history during conversations.\n\n---\n\n## Key Features & Modules\n\n* **Multi-Platform ETL Ingestion:**\n  - **GitHub Integration:** Robust OAuth2 authentication and webhook event handling tracking pushes, commits, pull requests, issues, issue comments, and releases.\n  - **Platform Connectors:** Extensible pipeline modules for aggregating developer metrics across platforms like **LeetCode**, **StackOverflow**, **etc...**\n* **Rust gRPC PDF Extraction Sidecar:**\n  - High-performance document parsing service built in Rust (using `tonic` and `prost`) to extract structured text and metadata from PDF files (with OCR capabilities planned).\n* **Kitanai API & User Management:**\n  - Complete backend lifecycle management: user registration, login, profile queries, session validation, and account verification.\n  - Secure automated background job queues (via `River`) handling scheduled data deletions and cleanup tasks.\n* **Session & Token Management:**\n  - High-speed session management and token validation powered by Redis.\n\n---\n\n## Tech Stack & Architecture\n\n* **Backend Core:** Go (Golang) microservice architecture.\n* **gRPC Sidecar:** Rust (`tonic`, `prost`) for heavy document/PDF processing.\n* **Database & Migrations:** PostgreSQL managed with **Atlas** schema migrations and type-safe query generation via **sqlc** (`pgxpool`).\n* **Caching & Jobs:** Redis for session caching and state management; River for background job processing.\n* **Containerization:** Docker & Docker Compose for multi-container orchestration (`compose.yaml`).\n\n---\n\n## Future Ideas\n* **Rust Sidecar OCR Fallback:** Integrating an OCR fallback mechanism into the Rust PDF extraction sidecar to seamlessly process documents whenever `pdf_oxide` fails.\n* **Advanced Telemetry:** Implementing robust observability and monitoring pipelines utilizing OpenTelemetry, Grafana Alloy, Grafana dashboards, and planned Prometheus integration.\n* **Cloud & Infrastructure as Code:** Provisioning and managing cloud architecture on AWS using Terraform and OpenTofu with HCL syntax, remote state locking, and strict cost guardrails.\n* **Kubernetes Orchestration:** Deploying services on Kubernetes via k3d using Helm charts, health probes, resource limits, and automated rolling updates with fast rollback capabilities.\n* **Production-Grade Testing:** Elevating the test suite to mimic real-world production environments using containerized dependencies (Testcontainers), chaos-replay verification streams, and rigorous race detection.\n* **GitHub App Migration:** Migrating the webhook creation to GitHub App.\n\n---\n## Note on Development and AI usage\n* **AI Usage:** AI was used exclusively for low-value, repetitive tasks—primarily boilerplate and test scaffolding (such as sqlc test.sql queries and Redis test fixtures like create_session.redis). These represent pure busywork not worth writing by hand. AI also assisted with occasional debugging sessions when root causes weren’t immediate, and with polishing code comments and documentation tone (this README being one example).\n* **Author Implementation:** Every meaningful design decision, all core application logic, and virtually all actual source code were thought through and written by the author. The AI’s role was strictly limited to the minor, non-creative tasks listed above.\n"
+                        }
+                    },
+                    {
+                        "name": "media-uploads",
+                        "isArchived": false,
+                        "createdAt": "2026-09-27T08:09:31Z",
+                        "fullDatabaseId": "1390439756",
+                        "description": "Nothing interesting, just uploading mp4",
+                        "forkCount": 0,
+                        "url": "https://github.com/shawnfrost25/media-uploads",
+                        "primaryLanguage": null,
+                        "pushedAt": "2026-09-27T08:09:32Z",
+                        "stargazerCount": 0,
+                        "visibility": "PUBLIC",
+                        "watchers": {
+                            "totalCount": 0
+                        },
+                        "languages": {
+                            "nodes": []
+                        },
+                        "repositoryTopics": {
+                            "nodes": []
+                        },
+                        "licenseInfo": null,
+                        "pullRequests": {
+                            "nodes": []
+                        },
+                        "issues": {
+                            "nodes": [
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/50ab58c7-e380-4d9f-b76a-b6589fd44571",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:36:28Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:36:28Z",
+                                    "fullDatabaseId": "5601164316",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 30,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "3rd",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/30"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/e1df7673-6a2d-427c-899f-fbda755c6721",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:36:08Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:36:08Z",
+                                    "fullDatabaseId": "5601162495",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 29,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "2nd",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/29"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/a34c5e8c-111a-4270-a83a-8d88dbf63b9b",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:32:27Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:32:27Z",
+                                    "fullDatabaseId": "5601143341",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 28,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "28",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/28"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/bbf627c8-8aad-46d0-9752-4f22d1f9204d",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:31:59Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:31:59Z",
+                                    "fullDatabaseId": "5601140945",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 27,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "27",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/27"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/216db813-a1f8-47ad-bcf4-5a22e5aadf09",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:31:21Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:31:21Z",
+                                    "fullDatabaseId": "5601137690",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 26,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "26",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/26"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/6b31d383-33f3-4efb-888a-56ce56b20c46",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:30:47Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:30:47Z",
+                                    "fullDatabaseId": "5601134818",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 25,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "25",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/25"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/865ff6b5-ee53-4d01-95ba-f19b7de9366f",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:30:05Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:30:05Z",
+                                    "fullDatabaseId": "5601131162",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 24,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "24",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/24"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/f334d87b-2d4e-4694-b73c-a79c8a2c7fc2",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:29:31Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:29:31Z",
+                                    "fullDatabaseId": "5601128248",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 23,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "23",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/23"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/2aed24e7-f2ef-4701-8943-8f56ed49ccb2",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:28:53Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:28:53Z",
+                                    "fullDatabaseId": "5601125014",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 22,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "22",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/22"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/d70faf90-7f9f-4515-a464-c1a369c6c3c2",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:28:18Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:28:18Z",
+                                    "fullDatabaseId": "5601122003",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 21,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "21",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/21"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/dbc474b4-2aee-4022-852e-1c0d9f452b2d",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:27:21Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:27:21Z",
+                                    "fullDatabaseId": "5601117175",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 20,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "20",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/20"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/9fef5b73-961d-4aa0-8aed-f0f9e018711d",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:23:36Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:23:36Z",
+                                    "fullDatabaseId": "5601097716",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 19,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "19",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/19"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/58efbba1-1e7b-4f2e-be09-897c51aea1de",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:23:11Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:23:11Z",
+                                    "fullDatabaseId": "5601095528",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 18,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "18",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/18"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/e1a2527e-fdfc-4aa8-b770-5d6e14d5da00",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:22:36Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:22:36Z",
+                                    "fullDatabaseId": "5601092688",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 17,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "17",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/17"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/9c044fda-e96e-48a3-9b69-4e4c6d964996",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:21:57Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:21:57Z",
+                                    "fullDatabaseId": "5601089346",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 16,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "16",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/16"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/4b7d9441-0447-46f0-8856-3660f680d1dd",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:20:49Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:20:49Z",
+                                    "fullDatabaseId": "5601083433",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 15,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "15",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/15"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/b2053a64-21a9-4bf3-980b-98cac97a9ae8",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:20:15Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:20:15Z",
+                                    "fullDatabaseId": "5601080557",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 14,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "14",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/14"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/f5453dc6-88d4-4104-a37f-d3b2acf16219",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:19:13Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:19:13Z",
+                                    "fullDatabaseId": "5601075227",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 13,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "13",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/13"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/ea25e3d7-7d5b-424a-bd70-d2a6306e4358",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:18:50Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:18:50Z",
+                                    "fullDatabaseId": "5601073179",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 12,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "12",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/12"
+                                },
+                                {
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "https://github.com/user-attachments/assets/c81f9442-9745-4c8f-bcdb-fd1ed91ca5da",
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "closed": false,
+                                    "createdAt": "2026-09-27T08:18:22Z",
+                                    "closedAt": null,
+                                    "updatedAt": "2026-09-27T08:18:22Z",
+                                    "fullDatabaseId": "5601070781",
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "issueType": null,
+                                    "locked": false,
+                                    "number": 11,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "state": "OPEN",
+                                    "stateReason": null,
+                                    "title": "11",
+                                    "url": "https://github.com/shawnfrost25/media-uploads/issues/11"
+                                }
+                            ]
+                        },
+                        "releases": {
+                            "totalCount": 0,
+                            "nodes": []
+                        },
+                        "object": null
+                    },
+                    {
+                        "name": "shawnfrost25",
+                        "isArchived": false,
+                        "createdAt": "2026-10-30T09:48:54Z",
+                        "fullDatabaseId": "1439541907",
+                        "description": null,
+                        "forkCount": 0,
+                        "url": "https://github.com/shawnfrost25/shawnfrost25",
+                        "primaryLanguage": null,
+                        "pushedAt": "2026-11-01T11:30:00Z",
+                        "stargazerCount": 0,
+                        "visibility": "PUBLIC",
+                        "watchers": {
+                            "totalCount": 0
+                        },
+                        "languages": {
+                            "nodes": []
+                        },
+                        "repositoryTopics": {
+                            "nodes": []
+                        },
+                        "licenseInfo": null,
+                        "pullRequests": {
+                            "nodes": [
+                                {
+                                    "additions": 44,
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "## Summary\n\n- Move Comfort zone 1 directly below the introduction\n- Move Comfort zone 2 below the technical and learning sections\n- Expand the profile with testing, security, reliability, infrastructure, observability, and systems-design experience from the provided background\n\n## Validation\n\n- Confirmed both comfort zones retain their uniform two-column GIF layout\n- `git diff --check` passes",
+                                    "changedFiles": 1,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5087182721",
+                                    "deletions": 30,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 6,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/6",
+                                    "title": "Refine profile README content",
+                                    "createdAt": "2026-10-30T15:56:06Z",
+                                    "updatedAt": "2026-10-30T16:16:59Z",
+                                    "closedAt": "2026-10-30T16:16:59Z",
+                                    "mergedAt": "2026-10-30T16:16:59Z"
+                                },
+                                {
+                                    "additions": 5,
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "## Summary\n\n- Convert the supplied comfort videos into optimized looping GIFs\n- Use GIF images in both comfort zones so they start and loop automatically\n- Preserve the uniform side-by-side layout and finale GIF\n\n## Validation\n\n- Five GIF assets are present and non-empty\n- `git diff --check` passes",
+                                    "changedFiles": 5,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5087038153",
+                                    "deletions": 5,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 5,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/5",
+                                    "title": "Make comfort zones autoplay",
+                                    "createdAt": "2026-10-30T15:45:11Z",
+                                    "updatedAt": "2026-10-30T15:49:23Z",
+                                    "closedAt": "2026-10-30T15:49:23Z",
+                                    "mergedAt": "2026-10-30T15:49:23Z"
+                                },
+                                {
+                                    "additions": 5,
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "## Summary\n\n- Render the four hosted comfort videos with explicit HTML video players\n- Keep the two side-by-side, full-width comfort zones\n- Remove the four obsolete comfort GIF assets while retaining the finale GIF\n- Update the media credit wording\n\n## Validation\n\n- GitHub Markdown rendering preserves all four `<video>` elements\n- `git diff --check` passes",
+                                    "changedFiles": 5,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5086983316",
+                                    "deletions": 5,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 4,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 1
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/4",
+                                    "title": "Fix comfort zone video rendering",
+                                    "createdAt": "2026-10-30T15:41:02Z",
+                                    "updatedAt": "2026-10-30T15:42:39Z",
+                                    "closedAt": "2026-10-30T15:42:38Z",
+                                    "mergedAt": "2026-10-30T15:42:38Z"
+                                },
+                                {
+                                    "additions": 21,
+                                    "author": {
+                                        "login": "shawnfrost25"
+                                    },
+                                    "body": "## Summary\n\n- Replace the four Comfort corner GIFs with the requested MP4 videos\n- Add two uniform, full-width Comfort zones with left/right video placement\n- Store the videos in the repository assets and retain the existing finale GIF\n\n## Validation\n\n- Confirmed all four MP4 files are present and non-empty\n- `git diff --check` passes\n\nhttps://github.com/user-attachments/assets/8f6c05bd-cb16-4731-b90f-80492a2ab62e\n\nhttps://github.com/user-attachments/assets/bfc9b6a9-cf1e-4d02-b78d-5dc71a371172\n\nhttps://github.com/user-attachments/assets/cd01d94d-43cd-433b-a227-848cd76604f7\n\nhttps://github.com/user-attachments/assets/8984c52e-2b6c-48df-91d7-ae4d4dc77f91",
+                                    "changedFiles": 1,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5086786505",
+                                    "deletions": 6,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 3,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/3",
+                                    "title": "Replace comfort GIFs with videos",
+                                    "createdAt": "2026-10-30T15:27:04Z",
+                                    "updatedAt": "2026-10-30T15:35:02Z",
+                                    "closedAt": "2026-10-30T15:35:01Z",
+                                    "mergedAt": "2026-10-30T15:35:01Z"
+                                },
+                                {
+                                    "additions": 90,
+                                    "author": {
+                                        "login": "copilot-swe-agent"
+                                    },
+                                    "body": "## Summary\n\n- Replace the default profile README with a concise backend-focused introduction\n- Add the Fernando Pessoa quote and the four-GIF Comfort corner using the existing assets\n- Add GIPHY credits and the closing “She looks so me” GIF\n\n## Validation\n\n- Confirmed all referenced GIF assets exist\n- `git diff --check` passes",
+                                    "changedFiles": 1,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5084007214",
+                                    "deletions": 16,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 2,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/2",
+                                    "title": "Refresh profile README",
+                                    "createdAt": "2026-10-30T12:01:59Z",
+                                    "updatedAt": "2026-10-30T12:02:35Z",
+                                    "closedAt": "2026-10-30T12:02:35Z",
+                                    "mergedAt": "2026-10-30T12:02:35Z"
+                                },
+                                {
+                                    "additions": 0,
+                                    "author": {
+                                        "login": "copilot-swe-agent"
+                                    },
+                                    "body": "## Summary\n- Add `assets/.gitkeep` to preserve the assets directory in Git.\n\n## Testing\n- Not applicable (empty placeholder file).",
+                                    "changedFiles": 1,
+                                    "comments": {
+                                        "nodes": []
+                                    },
+                                    "fullDatabaseId": "5083707361",
+                                    "deletions": 0,
+                                    "isDraft": false,
+                                    "locked": false,
+                                    "merged": true,
+                                    "closed": true,
+                                    "number": 1,
+                                    "reactionGroups": [
+                                        {
+                                            "content": "THUMBS_UP",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "THUMBS_DOWN",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "LAUGH",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HOORAY",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "CONFUSED",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "HEART",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "ROCKET",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        },
+                                        {
+                                            "content": "EYES",
+                                            "reactors": {
+                                                "totalCount": 0
+                                            }
+                                        }
+                                    ],
+                                    "participants": {
+                                        "totalCount": 2
+                                    },
+                                    "labels": {
+                                        "nodes": []
+                                    },
+                                    "state": "MERGED",
+                                    "url": "https://github.com/shawnfrost25/shawnfrost25/pull/1",
+                                    "title": "Add assets directory placeholder",
+                                    "createdAt": "2026-10-30T11:36:51Z",
+                                    "updatedAt": "2026-10-30T11:37:54Z",
+                                    "closedAt": "2026-10-30T11:37:54Z",
+                                    "mergedAt": "2026-10-30T11:37:54Z"
+                                }
+                            ]
+                        },
+                        "issues": {
+                            "nodes": []
+                        },
+                        "releases": {
+                            "totalCount": 0,
+                            "nodes": []
+                        },
+                        "object": {
+                            "text": "<div align=\"center\">\n\n# Shawn Frost\n\n**Backend engineering, systems curiosity, and the occasional late-night debugging session.**\n\nGo · PostgreSQL · Redis · Rust · Distributed systems\n\n<br />\n\n<blockquote>\n“The feelings that hurt most, the emotions that sting most, are those that are absurd;\nthe longing for impossible things, precisely because they are impossible; nostalgia for\nwhat never was; the desire for what could have been; regret over not being someone else;\ndissatisfaction with the world's existence. All these half-tones of the soul's\nconsciousness create in us a painful landscape.”\n<br /><br />\n— <b>Fernando Pessoa</b>, <i>The Book of Disquiet</i>\n</blockquote>\n\n</div>\n\n---\n\n## About\n\nI'm a backend-focused developer working primarily with **Go**, with a growing interest in\nsystems programming, distributed services, and low-level runtime behavior. I like building\nsoftware that stays reliable under failure, concurrency, load, and continuous change—not\njust software that works in a happy-path demo.\n\nI'm still learning constantly, but I'm comfortable going beyond beginner CRUD applications:\nI care about the trade-offs behind production-oriented design, useful tests, clear\nobservability, and systems that remain understandable as they grow.\n\nI enjoy turning complex system behavior into clear mental models, and I like sharing what I\nlearn through projects that are practical, measurable, and built to evolve.\n\n## Comfort zone 1 (I Want To Love You Till Your Dying Day / KimiShinu)\n\n<table width=\"100%\">\n  <tr>\n    <td width=\"50%\" align=\"center\">\n      <img src=\"./assets/kimishinu-1.gif\" width=\"100%\" alt=\"Comfort zone 1, left\" />\n    </td>\n    <td width=\"50%\" align=\"center\">\n      <img src=\"./assets/kimishinu-2.gif\" width=\"100%\" alt=\"Comfort zone 1, right\" />\n    </td>\n  </tr>\n</table>\n\n## What I Know\n\n- **Go backend development:** HTTP APIs, `chi`, middleware, authentication, OAuth2,\n  background workers, request lifecycles, concurrency, and error handling\n- **Data systems:** PostgreSQL, `pgx/pgxpool`, Squirrel, `sqlc`, Atlas migrations,\n  relational modeling, constraints, indexes, transactions, and Redis\n- **Service architecture:** gRPC, Protocol Buffers, Go/Rust service boundaries,\n  asynchronous jobs with River, retries, idempotency, and graceful shutdown\n- **Testing and reliability:** unit and integration tests, Testcontainers, race detection,\n  HTTP handler and middleware testing, failure-oriented cases, and CI-based validation\n- **State and async tooling:** Redis-backed sessions with `go-redis`, scheduled/async job\n  execution with River, and resilient retry/error workflows\n- **Security-minded backend work:** sessions, token handling, OAuth2 flows, webhook\n  verification, input validation, and defensive error handling\n- **Infrastructure:** Docker Compose, GitHub Actions, Terraform/OpenTofu, Jenkins and\n  GitLab CI/CD workflows, and Trivy image/filesystem scanning\n- **Observability:** structured logging with zerolog, Grafana Alloy, Loki, Grafana,\n  contextual errors, cardinality awareness, and continued exploration of Prometheus\n  and OpenTelemetry\n- **Engineering habits:** schema evolution, clean service boundaries, readable APIs,\n  reproducible environments, and debugging systems under concurrency, failure, and load\n\nI don't measure engineering by the number of tools I can list. I care about understanding\nwhy a system behaves the way it does, choosing the simplest design that holds up under\npressure, and writing tests that catch meaningful regressions instead of inflating a\ncoverage percentage.\n\n## Current Project\n\n**Prolepsis** is a developer-data ETL and\ncontext engine. It collects and normalizes activity from services such as GitHub, stores\nstructured data in PostgreSQL, and exposes it as context for future AI interactions.\n\nThe project brings together a Go API, GitHub OAuth and webhook ingestion, Redis sessions,\nRiver jobs, Atlas and sqlc, a RustPDF-processing gRPC sidecar, Docker Compose, integration\ntests, and separate Go/Rust CI pipelines.\n\n## Comfort zone 2 (Cosmic Princess Kaguya / CPK)\n\n<table width=\"100%\">\n  <tr>\n    <td width=\"50%\" align=\"center\">\n      <img src=\"./assets/cpk-1.gif\" width=\"100%\" alt=\"Comfort zone 2, left\" />\n    </td>\n    <td width=\"50%\" align=\"center\">\n      <img src=\"./assets/cpk-2.gif\" width=\"100%\" alt=\"Comfort zone 2, right\" />\n    </td>\n  </tr>\n</table>\n\n> Comfort-zone GIFs were made by me (inspired by <a href=\"https://giphy.com/channel/kattayan_46/\">kattayan_46</a>).\n>\n> The finale GIF is from <a href=\"https://giphy.com/kilianimes\">kilianimes on GIPHY</a>.\n\n## What I'm Learning Next\n\nBetter test design, deeper Go runtime and concurrency knowledge, more intentional telemetry,\nand practical distributed-systems design shaped by real failures rather than diagrams alone.\n\n---\n\n<div align=\"center\">\n\n## She's so me\n\n<img src=\"./assets/so-me.gif\" width=\"360\" alt=\"She looks so me\" />\n\n</div>\n"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

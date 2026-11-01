@@ -32,7 +32,7 @@ repos:
     hooks:
       - id: go-test
         name: Run Go Tests
-        entry: go test ./...
+        entry: go test -timeout=1m ./...
         language: system
         pass_filenames: false
 

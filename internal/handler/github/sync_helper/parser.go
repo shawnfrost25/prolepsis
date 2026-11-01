@@ -5,16 +5,16 @@ import (
 	"strconv"
 )
 
-func ParseId(fullDatabaseId *string) (int64, error, string) {
+func ParseId(fullDatabaseId *string) (int64, string, error) {
 	if fullDatabaseId == nil || *fullDatabaseId == "" {
-		return 0, failure.EmptyValue("fullDatabaseId"), ""
+		return 0, "_id_invalid", failure.EmptyValue("fullDatabaseId")
 	}
 	id, err := strconv.ParseInt(*fullDatabaseId, 10, 64)
 	if err != nil {
-		return 0, err, "_id_malformed"
+		return 0, "_id_malformed", err
 	}
 	if id <= 0 {
-		return 0, failure.Invalid("fullDatabaseId", "Cannot be negative or 0"), "_id_invalid"
+		return 0, "_id_format_invalid", failure.Invalid("fullDatabaseId", "cannot be 0 or negative")
 	}
-	return id, nil, ""
+	return id, "", nil
 }

@@ -14,14 +14,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type UserPayload struct {
-	Name      string      `json:"name"`
-	Sex       string      `json:"sex"`
-	BirthDate pgtype.Date `json:"birth_date"`
-	Email     string      `json:"email"`
-	Password  string      `json:"password"`
-}
-
 func cu(t *testing.T) *Server {
 	t.Helper()
 	rdb, pool, queries := testenv.New(t)
@@ -49,6 +41,14 @@ func cu(t *testing.T) *Server {
 func TestCreateUser(t *testing.T) {
 	s := cu(t)
 
+	ptrStr := func(str string) *string {
+		return &str
+	}
+
+	ptrDate := func() *pgtype.Date {
+		return &pgtype.Date{Time: time.Date(2012, 11, 25, 1, 1, 1, 1, time.Local), Valid: true}
+	}
+
 	s.seed(t, "Ari Maud", "")
 	_, err := s.red.Set(context.Background(), "pending:registration:email:"+"arimaud@gmail.com", 1, 24*time.Hour).Result()
 	if err != nil {
@@ -57,39 +57,39 @@ func TestCreateUser(t *testing.T) {
 
 	test := []struct {
 		Name           string
-		Body           UserPayload
+		Body           RegisterUser
 		ExpectedStatus int
 	}{
 		{
 			Name: "Successfully creating a user",
-			Body: UserPayload{
-				Name:      "Sheena Totsuki",
-				Sex:       "female",
-				BirthDate: pgtype.Date{Time: time.Date(2012, 11, 25, 1, 1, 1, 1, time.Local), Valid: true},
-				Email:     "sheenatotsuki@gmail.com",
-				Password:  "sheena_standing_png",
+			Body: RegisterUser{
+				Name:      ptrStr("Sheena Totsuki"),
+				Sex:       ptrStr("female"),
+				BirthDate: ptrDate(),
+				Email:     ptrStr("sheenatotsuki@gmail.com"),
+				Password:  ptrStr("sheena_standing_png"),
 			},
 			ExpectedStatus: http.StatusOK,
 		},
 		{
 			Name: "Failing due to missing field",
-			Body: UserPayload{
-				Name:      "Mimi Kagari",
-				Sex:       "female",
-				BirthDate: pgtype.Date{},
-				Email:     "mimikagari@gmail.com",
-				Password:  "mimi_is_mimi",
+			Body: RegisterUser{
+				Name:      ptrStr("Mimi Kagari"),
+				Sex:       ptrStr("female"),
+				BirthDate: &pgtype.Date{},
+				Email:     ptrStr("mimikagari@gmail.com"),
+				Password:  ptrStr("mimi_is_mimi"),
 			},
 			ExpectedStatus: http.StatusBadRequest,
 		},
 		{
 			Name: "Failing due to rate limit",
-			Body: UserPayload{
-				Name:      "Ari Maud",
-				Sex:       "female",
-				BirthDate: pgtype.Date{Time: time.Date(2012, 05, 01, 1, 1, 1, 1, time.Local), Valid: true},
-				Email:     "arimaud@gmail.com",
-				Password:  "absence",
+			Body: RegisterUser{
+				Name:      ptrStr("Ari Maud"),
+				Sex:       ptrStr("female"),
+				BirthDate: ptrDate(),
+				Email:     ptrStr("arimaud@gmail.com"),
+				Password:  ptrStr("absence"),
 			},
 			ExpectedStatus: http.StatusTooManyRequests,
 		},

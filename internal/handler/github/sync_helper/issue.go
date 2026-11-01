@@ -12,7 +12,7 @@ import (
 
 func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "issues").Logger()
-	issueId, err, code := ParseId(issue.FullDatabaseId)
+	issueId, code, err := ParseId(issue.FullDatabaseId)
 	if err != nil {
 		err = failure.Wrap("github.http.issue.id.validate", err)
 		logger = logger.With().Str("issue_name", issue.Title).Interface("issue_id", issue.FullDatabaseId).Logger()
@@ -106,7 +106,7 @@ func IssueCallback(logger zerolog.Logger, issue IssueNode, ctx context.Context, 
 					authorLogin = &comment.Author.Login
 				}
 
-				issueCommentId, err, code := ParseId(comment.FullDatabaseId)
+				issueCommentId, code, err := ParseId(comment.FullDatabaseId)
 				if err != nil {
 					err = failure.Wrap("github.http.comment.id.validate", err)
 					logger = logger.With().Interface("issue_comment_id", comment.FullDatabaseId).Logger()

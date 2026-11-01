@@ -196,24 +196,24 @@ type Repository struct {
 // ==============================
 
 type User struct {
-	Login     string    `json:"login"`
-	AvatarUrl string    `json:"avatarUrl"`
-	Bio       *string   `json:"bio"`
-	Company   *string   `json:"company"`
-	CreatedAt time.Time `json:"createdAt"`
-	Email     string    `json:"email"`
-	Followers struct {
-		TotalCount int `json:"totalCount"`
-	} `json:"followers"`
-	DatabaseID *int64 `json:"databaseId"`
-	Status     *struct {
-		Message *string `json:"message"`
-	} `json:"status"`
-	IsHireable bool       `json:"isHireable"`
-	HtmlUrl    string     `json:"url"`
-	Repository Repository `json:"repositories"`
-}
-
-type Data struct {
-	User User `json:"user"`
+	Data struct {
+		Viewer struct {
+			Login     string    `json:"login"`
+			AvatarUrl string    `json:"avatarUrl"`
+			Bio       *string   `json:"bio"`
+			Company   *string   `json:"company"`
+			CreatedAt time.Time `json:"createdAt"`
+			Email     string    `json:"email"`
+			Followers struct {
+				TotalCount int `json:"totalCount"`
+			} `json:"followers"`
+			DatabaseID *int64 `json:"databaseId"`
+			Status     *struct {
+				Message *string `json:"message"`
+			} `json:"status"`
+			IsHireable bool       `json:"isHireable"`
+			HtmlUrl    string     `json:"url"`
+			Repository Repository `json:"repositories"`
+		} `json:"viewer"`
+	} `json:"data"`
 }

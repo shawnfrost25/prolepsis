@@ -12,7 +12,7 @@ import (
 
 func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx context.Context, githubRepoId int64, githubUserId int64, queries *db.Queries) bool {
 	logger = logger.With().Str("process", "pull_request").Logger()
-	pullRequestId, err, code := ParseId(pullRequest.FullDatabaseId)
+	pullRequestId, code, err := ParseId(pullRequest.FullDatabaseId)
 	if err != nil {
 		err = failure.Wrap("github.http.pull_request.id.validate", err)
 		logger = logger.With().Str("pull_request_name", pullRequest.Title).Interface("pull_request_id", pullRequest.FullDatabaseId).Logger()
@@ -115,7 +115,7 @@ func PullRequestCallback(logger zerolog.Logger, pullRequest PullRequestNode, ctx
 					authorLogin = &comment.Author.Login
 				}
 
-				pullRequestCommentId, err, code := ParseId(comment.FullDatabaseId)
+				pullRequestCommentId, code, err := ParseId(comment.FullDatabaseId)
 				if err != nil {
 					err = failure.Wrap("github.http.comment.id.validate", err)
 					logger = logger.With().Interface("pull_request_comment_id", comment.FullDatabaseId).Logger()

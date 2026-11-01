@@ -20,6 +20,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog"
+	"golang.org/x/oauth2"
 )
 
 type QueryLookup struct {
@@ -273,7 +274,9 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.GH_Config.Exchange(timeout, code)
+	ctx := context.WithValue(timeout, oauth2.HTTPClient, &h.HTTP_Client)
+
+	token, err := h.GH_Config.Exchange(ctx, code)
 	if err != nil {
 		err = failure.Wrap("github.http.oauth.code.exchange", err)
 		errlog.General(logger, w, "oauth_code_exchange", failure.InternalGeneralError, err, trace)
@@ -332,7 +335,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if graph.DatabaseID == nil {
+	if graph.Data.Viewer.DatabaseID == nil {
 		err = failure.EmptyValue("github_id")
 		err = failure.Wrap("github.http.graphql.user.existence_check", err)
 		errlog.Http(logger, w, "github_id", failure.EmptyValueError, err, trace)
@@ -340,8 +343,8 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var email *string
-	if graph.Email != "" {
-		email = &graph.Email
+	if graph.Data.Viewer.Email != "" {
+		email = &graph.Data.Viewer.Email
 	}
 
 	var userID pgtype.UUID
@@ -354,18 +357,18 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	err = h.Queries.InsertGitHubUser(timeout, db.InsertGitHubUserParams{
 		UserID:        userID,
-		GithubID:      *graph.DatabaseID,
-		Login:         graph.Login,
-		Company:       graph.Company,
+		GithubID:      *graph.Data.Viewer.DatabaseID,
+		Login:         graph.Data.Viewer.Login,
+		Company:       graph.Data.Viewer.Company,
 		Email:         email,
-		Bio:           graph.Bio,
-		StatusMessage: graph.Status.Message,
-		Followers:     int32(graph.Followers.TotalCount),
-		TotalRepos:    int32(graph.Repository.TotalCount),
-		IsHireable:    graph.IsHireable,
-		AvatarUrl:     graph.AvatarUrl,
-		HtmlUrl:       graph.HtmlUrl,
-		CreatedAt:     pgtype.Timestamptz{Time: graph.CreatedAt, Valid: true},
+		Bio:           graph.Data.Viewer.Bio,
+		StatusMessage: graph.Data.Viewer.Status.Message,
+		Followers:     int32(graph.Data.Viewer.Followers.TotalCount),
+		TotalRepos:    int32(graph.Data.Viewer.Repository.TotalCount),
+		IsHireable:    graph.Data.Viewer.IsHireable,
+		AvatarUrl:     graph.Data.Viewer.AvatarUrl,
+		HtmlUrl:       graph.Data.Viewer.HtmlUrl,
+		CreatedAt:     pgtype.Timestamptz{Time: graph.Data.Viewer.CreatedAt, Valid: true},
 	})
 	if err != nil {
 		err = failure.Wrap("github.database.user.insert", err)
@@ -375,23 +378,9 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 	var wg sync.WaitGroup
 
-	parseStr := func(fullDatabaseId *string) (int64, error, string) {
-		if fullDatabaseId == nil || *fullDatabaseId == "" {
-			return 0, failure.EmptyValue("fullDatabaseId"), "_id_invalid"
-		}
-		id, err := strconv.ParseInt(*fullDatabaseId, 10, 64)
-		if err != nil {
-			return 0, err, "_id_malformed"
-		}
-		if id <= 0 {
-			return 0, failure.Invalid("fullDatabaseId", "cannot be 0 or negative"), "_id_format_invalid"
-		}
-		return id, nil, ""
-	}
-
-	if len(graph.Repository.Nodes) != 0 {
-		for _, repo := range graph.Repository.Nodes {
-			repositoryId, err, code := parseStr(repo.FullDatabaseId)
+	if len(graph.Data.Viewer.Repository.Nodes) != 0 {
+		for _, repo := range graph.Data.Viewer.Repository.Nodes {
+			repositoryId, code, err := synchelper.ParseId(repo.FullDatabaseId)
 			if err != nil {
 				err = failure.Wrap("github.http.repository.id.validate", err)
 				logger = logger.With().Str("repo_name", repo.Name).Interface("repo_id", repo.FullDatabaseId).Logger()
@@ -465,7 +454,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			err = h.Queries.InsertGitHubRepo(timeout, db.InsertGitHubRepoParams{
-				GithubID:           *graph.DatabaseID,
+				GithubID:           *graph.Data.Viewer.DatabaseID,
 				RepoID:             repositoryId,
 				Name:               repo.Name,
 				Description:        repo.Description,
@@ -501,7 +490,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 					defer wg.Done()
 					for _, pullRequest := range repo.PullRequest.Nodes {
 						// returns 'true' (meaning something failed) - we continue
-						if synchelper.PullRequestCallback(logger, pullRequest, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
+						if synchelper.PullRequestCallback(logger, pullRequest, timeout, repositoryId, *graph.Data.Viewer.DatabaseID, h.Queries) {
 							continue
 						}
 					}
@@ -512,7 +501,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				go func() {
 					defer wg.Done()
 					for _, issue := range repo.Issues.Nodes {
-						if synchelper.IssueCallback(logger, issue, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
+						if synchelper.IssueCallback(logger, issue, timeout, repositoryId, *graph.Data.Viewer.DatabaseID, h.Queries) {
 							continue
 						}
 					}
@@ -523,7 +512,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 				go func() {
 					wg.Done()
 					for _, release := range repo.Releases.Nodes {
-						if synchelper.ReleaseCallback(logger, release, timeout, repositoryId, *graph.DatabaseID, h.Queries) {
+						if synchelper.ReleaseCallback(logger, release, timeout, repositoryId, *graph.Data.Viewer.DatabaseID, h.Queries) {
 							continue
 						}
 					}
@@ -573,7 +562,7 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			body := bytes.NewReader(bodyBytes)
-			webhookURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/hooks", graph.Login, repo.Name)
+			webhookURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/hooks", graph.Data.Viewer.Login, repo.Name)
 
 			reqW, err := http.NewRequestWithContext(timeout, http.MethodPost, webhookURL, body)
 			if err != nil {
@@ -600,28 +589,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 					Int("status", http.StatusInternalServerError).
 					Str("code", "webhook_secret_insert_failed").
 					Msg("failed to insert webhook secret")
-				continue
-			}
-
-			wasRemoved, err := h.RedisClient.Persist(timeout, "oauth:github:webhook:secret:"+repoIDStr).Result()
-			if err != nil {
-				err = failure.Wrap("github.redis.webhook.secret.ttl_remove", err)
-				logger.Debug().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_secret_ttl_remove_failed").
-					Msg("failed to remove webhook secret TTL")
-				continue
-			}
-
-			if !wasRemoved {
-				err = failure.InternalGeneral("webhook_secret_ttl", "the key does not exist or has no TTL to remove")
-				err = failure.Wrap("github.redis.webhook.secret.ttl_check", err)
-				logger.Debug().
-					Err(err).
-					Int("status", http.StatusInternalServerError).
-					Str("code", "webhook_secret_ttl_remove_failed").
-					Msg("failed to remove webhook secret TTL")
 				continue
 			}
 
@@ -661,20 +628,6 @@ func (h *GitHubHandler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 					Int("status", http.StatusConflict).
 					Str("code", "webhook_id_already_exists").
 					Msg("webhook ID already exists")
-			}
-
-			wasRemoved, err = h.RedisClient.Persist(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
-			if err != nil {
-				err = failure.Wrap("github.redis.webhook.hook_id.ttl_remove", err)
-				errlog.Redis(logger, w, "webhook_id_ttl_remove", err, trace)
-				return
-			}
-
-			if !wasRemoved {
-				err = failure.InternalGeneral("webhook_id_ttl", "the key does not exist or has no TTL to remove")
-				err = failure.Wrap("github.redis.webhook.hook_id.ttl_check", err)
-				errlog.General(logger, w, "webhook_id_ttl_remove", failure.InternalGeneralError, err, trace)
-				return
 			}
 
 			logger.Info().
