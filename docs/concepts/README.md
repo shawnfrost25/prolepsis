@@ -7,3 +7,6 @@ In other words, these are concepts I thought I understood but apparently hadn't 
 
 ## Current explanations
 * **Context** -> [CLICK ME](https://github.com/shawnfrost25/prolepsis/tree/main/docs/concepts/context.md)
+* **Interface** -> [CLICK ME](https://github.com/shawnfrost25/prolepsis/tree/main/docs/concepts/interface.md)
+* **Intercept** -> [CLICK ME](https://github.com/shawnfrost25/prolepsis/tree/main/docs/concepts/intercept.md)
+
