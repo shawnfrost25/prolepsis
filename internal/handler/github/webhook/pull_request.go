@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"prolepsis/internal/auth"
 	db "prolepsis/internal/db/sqlc"
@@ -52,8 +53,10 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 
 	closed := req.PullRequest.ClosedAt != nil
 
-	if strings.ToLower(req.PullRequest.State) != "open" && strings.ToLower(req.PullRequest.State) != "closed" {
-		err = failure.Invalid("pull_request_state", "unsupported state "+req.PullRequest.State)
+	state := strings.ToLower(strings.TrimSpace(req.PullRequest.State))
+
+	if state != "open" && state != "closed" {
+		err = failure.Invalid("pull_request_state", fmt.Sprintf("unsupported state: %q", req.PullRequest.State))
 		err = failure.Wrap("github.http.pull_request.state.validate", err)
 		errlog.Http(logger, w, "pull_request_state", failure.InvalidError, err, trace)
 		return
@@ -91,7 +94,7 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 		AuthorLogin:  authLogin,
 		Title:        req.PullRequest.Title,
 		Body:         req.PullRequest.Body,
-		State:        req.PullRequest.State,
+		State:        state,
 		Labels:       labels,
 		Additions:    int32(req.PullRequest.Additions),
 		ChangedFiles: int32(req.PullRequest.ChangedFiles),
@@ -102,8 +105,8 @@ func (h *WebhookHandler) WebhookPullRequest(w http.ResponseWriter, r *http.Reque
 		IsLocked:     req.PullRequest.IsLocked,
 		IsMerged:     req.PullRequest.IsMerged,
 		HtmlUrl:      req.PullRequest.HtmlUrl,
-		CreatedAt:    pgtype.Timestamptz{Time: req.PullRequest.CreatedAt},
-		UpdatedAt:    pgtype.Timestamptz{Time: req.PullRequest.UpdatedAt},
+		CreatedAt:    pgtype.Timestamptz{Time: req.PullRequest.CreatedAt, Valid: true},
+		UpdatedAt:    pgtype.Timestamptz{Time: req.PullRequest.UpdatedAt, Valid: true},
 		ClosedAt:     closedAt,
 		MergedAt:     mergedAt,
 	})

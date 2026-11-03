@@ -8,6 +8,10 @@ import (
 // GENERAL HELPER (EVERYTHING BELOW)
 // ==============================
 
+type Repo struct {
+	Repository Repository `json:"repository"`
+}
+
 type Repository struct {
 	ID    int64 `json:"id"`
 	Owner struct {
@@ -44,7 +48,7 @@ type PullRequestWebhook struct {
 		Author    *struct {
 			Login string `json:"login"`
 		} `json:"user"`
-	}
+	} `json:"pull_request"`
 	Repository Repository `json:"repository"`
 }
 
@@ -57,7 +61,7 @@ type IssuesWebhook struct {
 	Issue  struct {
 		Body      *string    `json:"body"`
 		ClosedAt  *time.Time `json:"closed_at"`
-		CreatedAt time.Time  `json:"createdAt"`
+		CreatedAt time.Time  `json:"created_at"`
 		HtmlUrl   string     `json:"html_url"`
 		Id        int64      `json:"id"`
 		Labels    []struct {
@@ -76,7 +80,7 @@ type IssuesWebhook struct {
 			Rocket     int `json:"rocket"`
 			TotalCount int `json:"total_count"`
 		} `json:"reactions"`
-		State       string  `json:"string"`
+		State       string  `json:"state"`
 		StateReason *string `json:"state_reason"`
 		Title       string  `json:"title"`
 		Type        *struct {
@@ -165,31 +169,33 @@ type GitHubPush struct {
 // ==============================
 
 type RepositoryWebhook struct {
-	Action      string `json:"action"`
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	LicenseInfo *struct {
-		Name    string  `json:"name"`
-		Body    string  `json:"body"`
-		Key     string  `json:"key"`
-		SpdxId  *string `json:"spdxId"`
-		HtmlUrl *string `json:"html_url"`
-		NodeId  string  `json:"id"`
-	} `json:"license"`
-	ForksCount int `json:"forks_count"`
-	Owner      struct {
-		ID int64 `json:"id"`
-	} `json:"owner"`
-	IsPrivate   bool       `json:"private"`
-	HtmlUrl     string     `json:"html_url"`
-	Description *string    `json:"description"`
-	IsFork      bool       `json:"fork"`
-	Language    *string    `json:"language"`
-	Stars       int        `json:"stargazers_count"`
-	Watches     int        `json:"watchers_count"`
-	IsArchived  bool       `json:"archived"`
-	Visibility  *string    `json:"visibility"`
-	PushedAt    *time.Time `json:"pushed_at"`
-	CreatedAt   *time.Time `json:"created_at"`
-	UpdatedAt   *time.Time `json:"updated_at"`
+	Action string `json:"action"`
+	Repo   struct {
+		ID          int64  `json:"id"`
+		Name        string `json:"name"`
+		LicenseInfo *struct {
+			Name    string  `json:"name"`
+			Body    string  `json:"body"`
+			Key     string  `json:"key"`
+			SpdxId  *string `json:"spdxId"`
+			HtmlUrl *string `json:"html_url"`
+			NodeId  string  `json:"id"`
+		} `json:"license"`
+		ForksCount int `json:"forks_count"`
+		Owner      struct {
+			ID int64 `json:"id"`
+		} `json:"owner"`
+		IsPrivate   bool       `json:"private"`
+		HtmlUrl     string     `json:"html_url"`
+		Description *string    `json:"description"`
+		IsFork      bool       `json:"fork"`
+		Language    *string    `json:"language"`
+		Stars       int        `json:"stargazers_count"`
+		Watches     int        `json:"watchers_count"`
+		IsArchived  bool       `json:"archived"`
+		Visibility  *string    `json:"visibility"`
+		PushedAt    *time.Time `json:"pushed_at"`
+		CreatedAt   *time.Time `json:"created_at"`
+		UpdatedAt   *time.Time `json:"updated_at"`
+	} `json:"repository"`
 }

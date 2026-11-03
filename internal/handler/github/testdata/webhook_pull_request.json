@@ -1,0 +1,49 @@
+{
+    "action": "closed",
+    "number": 2,
+    "pull_request": {
+        "id": 5064354067,
+        "number": 2,
+        "title": "Fix push request migration constraint collision",
+        "body": "## Summary\n- Rename the legacy `push_webhook` primary-key constraint before creating `push_requests`.\n- Update `atlas.sum` for the migration change.\n\n## Validation\n- `go test -p 1 ./...`",
+        "state": "closed",
+        "locked": false,
+        "draft": false,
+        "merged": true,
+        "merged_at": "2026-10-29T08:05:44Z",
+        "closed_at": "2026-10-29T08:05:44Z",
+        "created_at": "2026-10-29T07:52:47Z",
+        "updated_at": "2026-10-29T08:05:44Z",
+        "user": {
+            "login": "Copilot",
+            "id": 198982749,
+            "type": "Bot"
+        },
+        "labels": [],
+        "additions": 0,
+        "deletions": 0,
+        "changed_files": 2,
+        "html_url": "https://github.com/shawnfrost25/prolepsis/pull/2",
+        "head": {
+            "label": "shawnfrost25:fix/push-requests-constraint-collision",
+            "ref": "fix/push-requests-constraint-collision",
+            "sha": "c2ea71735fa23c444de39932096cc0a4b8ac63ff"
+        },
+        "base": {
+            "label": "shawnfrost25:main",
+            "ref": "main",
+            "sha": "88c1158400c632108bf7a0202ed815e8afd4dfa1"
+        }
+    },
+    "repository": {
+        "id": 54321,
+        "owner": {
+            "id": 12345
+        }
+    },
+    "sender": {
+        "login": "Copilot",
+        "id": 198982749,
+        "type": "Bot"
+    }
+}

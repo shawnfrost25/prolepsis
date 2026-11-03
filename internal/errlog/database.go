@@ -75,6 +75,7 @@ func Database(logger zerolog.Logger, w http.ResponseWriter, subject string, trac
 				Str("code", subject+"_foreign_key_violation").
 				Msg("resource relationship conflict")
 			respond(http.StatusConflict, "CONFLICT", "The operation conflicts with an existing resource relationship")
+		// Not Null violation
 		case "23502":
 			logger.Warn().
 				Err(err).

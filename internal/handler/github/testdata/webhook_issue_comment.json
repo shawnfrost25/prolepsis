@@ -1,0 +1,57 @@
+{
+    "action": "created",
+    "comment": {
+        "id": 4000000001,
+        "body": "The migration and atlas checksum changes look correct.",
+        "user": {
+            "login": "shawnfrost25",
+            "id": 12345,
+            "type": "User"
+        },
+        "created_at": "2026-11-02T19:10:00Z",
+        "updated_at": "2026-11-02T19:10:00Z",
+        "html_url": "https://github.com/shawnfrost25/prolepsis/pull/2#issuecomment-4000000001",
+        "issue_url": "https://api.github.com/repos/shawnfrost25/prolepsis/issues/2",
+        "author_association": "OWNER",
+        "performed_via_github_app": null,
+        "minimized": false,
+        "reactions": {
+            "total_count": 0,
+            "+1": 0,
+            "-1": 0,
+            "laugh": 0,
+            "hooray": 0,
+            "confused": 0,
+            "heart": 0,
+            "rocket": 0,
+            "eyes": 0
+        }
+    },
+    "issue": {
+        "id": 3000000001,
+        "number": 2,
+        "title": "Fix push request migration constraint collision",
+        "state": "closed",
+        "html_url": "https://github.com/shawnfrost25/prolepsis/pull/2",
+        "pull_request": {
+            "url": "https://api.github.com/repos/shawnfrost25/prolepsis/pulls/2",
+            "html_url": "https://github.com/shawnfrost25/prolepsis/pull/2"
+        },
+        "user": {
+            "login": "Copilot",
+            "id": 198982749,
+            "type": "Bot"
+        }
+    },
+    "repository": {
+        "id": 54321,
+        "owner": {
+            "id": 12345
+        }
+    },
+    "sender": {
+        "login": "shawnfrost25",
+        "id": 12345,
+        "type": "User"
+    }
+}

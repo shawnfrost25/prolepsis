@@ -1,0 +1,37 @@
+{
+    "action": "published",
+    "release": {
+        "id": 5000000001,
+        "tag_name": "v0.1.0",
+        "target_commitish": "main",
+        "name": "v0.1.0",
+        "body": "Initial public release of Prolepsis.",
+        "draft": false,
+        "prerelease": false,
+        "immutable": false,
+        "created_at": "2026-11-02T19:20:00Z",
+        "updated_at": "2026-11-02T19:20:00Z",
+        "published_at": "2026-11-02T19:20:00Z",
+        "html_url": "https://github.com/shawnfrost25/prolepsis/releases/tag/v0.1.0",
+        "url": "https://api.github.com/repos/shawnfrost25/prolepsis/releases/5000000001",
+        "author": {
+            "login": "shawnfrost25",
+            "id": 12345,
+            "type": "User"
+        },
+        "assets": [],
+        "zipball_url": "https://github.com/shawnfrost25/prolepsis/zipball/v0.1.0",
+        "tarball_url": "https://github.com/shawnfrost25/prolepsis/tarball/v0.1.0"
+    },
+    "repository": {
+        "id": 54321,
+        "owner": {
+            "id": 12345
+        }
+    },
+    "sender": {
+        "login": "shawnfrost25",
+        "id": 12345,
+        "type": "User"
+    }
+}

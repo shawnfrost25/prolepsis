@@ -1,0 +1,56 @@
+{
+  "ref": "refs/heads/main",
+  "before": "88c1158400c632108bf7a0202ed815e8afd4dfa1",
+  "after": "c43a29c155b1b3360cc7ae935c18155dfa9b4b85",
+  "created": false,
+  "deleted": false,
+  "forced": false,
+  "compare": "https://github.com/shawnfrost25/prolepsis/compare/88c1158...c43a29c",
+  "commits": [
+    {
+      "id": "c43a29c155b1b3360cc7ae935c18155dfa9b4b85",
+      "tree_id": "d70c1f1cc6e59aa518507e5dca981fe672739a32",
+      "distinct": true,
+      "message": "docs(concepts): add context explanation",
+      "timestamp": "2026-11-02T18:27:45Z",
+      "url": "https://github.com/shawnfrost25/prolepsis/commit/c43a29c155b1b3360cc7ae935c18155dfa9b4b85",
+      "author": {
+        "name": "shawnfrost25",
+        "email": "shawnfrost250@gmail.com",
+        "username": "shawnfrost25"
+      },
+      "committer": {
+        "name": "shawnfrost25",
+        "email": "shawnfrost250@gmail.com",
+        "username": "shawnfrost25"
+      },
+      "added": [
+        "docs/concepts.md"
+      ],
+      "removed": [],
+      "modified": []
+    }
+  ],
+  "repository": {
+    "id": 54321,
+    "name": "prolepsis",
+    "full_name": "shawnfrost25/prolepsis",
+    "private": false,
+    "owner": {
+      "id": 12345,
+      "login": "shawnfrost25"
+    },
+    "html_url": "https://github.com/shawnfrost25/prolepsis",
+    "default_branch": "main",
+    "language": "Go"
+  },
+  "pusher": {
+    "name": "shawnfrost25",
+    "email": "shawnfrost250@gmail.com"
+  },
+  "sender": {
+    "login": "shawnfrost25",
+    "id": 12345,
+    "type": "User"
+  }
+}

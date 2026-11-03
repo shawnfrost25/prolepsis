@@ -50,7 +50,7 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if req.IsFork {
+	if req.Repo.IsFork {
 		logger.Debug().
 			Int("status", http.StatusOK).
 			Str("code", "repository_fork").
@@ -59,7 +59,7 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	repoIDStr := strconv.FormatInt(req.ID, 10)
+	repoIDStr := strconv.FormatInt(req.Repo.ID, 10)
 	hookIDStr, err := h.RedisClient.Get(timeout, "oauth:github:webhook:hook_id:"+repoIDStr).Result()
 	if err != nil {
 		err = failure.Wrap("github.redis.webhook.hook_id.fetch", err)
@@ -82,14 +82,14 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 	}
 
 	var licenseKey *string
-	if req.LicenseInfo != nil {
+	if req.Repo.LicenseInfo != nil {
 		err := h.Queries.InsertGitHubLicense(timeout, db.InsertGitHubLicenseParams{
-			SpdxID:     req.LicenseInfo.SpdxId,
-			NodeID:     req.LicenseInfo.NodeId,
-			LicenseKey: req.LicenseInfo.Key,
-			Name:       req.LicenseInfo.Name,
-			Body:       req.LicenseInfo.Body,
-			HtmlUrl:    req.LicenseInfo.HtmlUrl,
+			SpdxID:     req.Repo.LicenseInfo.SpdxId,
+			NodeID:     req.Repo.LicenseInfo.NodeId,
+			LicenseKey: req.Repo.LicenseInfo.Key,
+			Name:       req.Repo.LicenseInfo.Name,
+			Body:       req.Repo.LicenseInfo.Body,
+			HtmlUrl:    req.Repo.LicenseInfo.HtmlUrl,
 		})
 		if err != nil {
 			err = failure.Wrap("github.database.license.insert", err)
@@ -97,43 +97,43 @@ func (h WebhookHandler) WebhookRepository(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		licenseKey = &req.LicenseInfo.Key
+		licenseKey = &req.Repo.LicenseInfo.Key
 		logger.Debug().
-			Str("license_key", req.LicenseInfo.Key).
-			Str("license_name", req.LicenseInfo.Name).
+			Str("license_key", req.Repo.LicenseInfo.Key).
+			Str("license_name", req.Repo.LicenseInfo.Name).
 			Msg("inserted new license")
 	}
 
 	var createdAt pgtype.Timestamptz
-	if req.CreatedAt != nil {
-		createdAt = pgtype.Timestamptz{Time: *req.CreatedAt, Valid: true}
+	if req.Repo.CreatedAt != nil {
+		createdAt = pgtype.Timestamptz{Time: *req.Repo.CreatedAt, Valid: true}
 	}
 
 	var pushedAt pgtype.Timestamptz
-	if req.PushedAt != nil {
-		pushedAt = pgtype.Timestamptz{Time: *req.PushedAt, Valid: true}
+	if req.Repo.PushedAt != nil {
+		pushedAt = pgtype.Timestamptz{Time: *req.Repo.PushedAt, Valid: true}
 	}
 
 	var updatedAt pgtype.Timestamptz
-	if req.UpdatedAt != nil {
-		updatedAt = pgtype.Timestamptz{Time: *req.UpdatedAt, Valid: true}
+	if req.Repo.UpdatedAt != nil {
+		updatedAt = pgtype.Timestamptz{Time: *req.Repo.UpdatedAt, Valid: true}
 	}
 
 	err = h.Queries.InsertGitHubRepo(timeout, db.InsertGitHubRepoParams{
-		GithubID:     req.Owner.ID,
-		RepoID:       req.ID,
+		GithubID:     req.Repo.Owner.ID,
+		RepoID:       req.Repo.ID,
 		HookID:       hookID,
 		Action:       &req.Action,
-		Name:         req.Name,
-		Description:  req.Description,
-		MainLanguage: req.Language,
+		Name:         req.Repo.Name,
+		Description:  req.Repo.Description,
+		MainLanguage: req.Repo.Language,
 		LicenseKey:   licenseKey,
-		Visibility:   *req.Visibility,
-		Stars:        int32(req.Stars),
-		Watches:      int32(req.Watches),
-		ForksCount:   int32(req.ForksCount),
-		IsArchived:   req.IsArchived,
-		HtmlUrl:      req.HtmlUrl,
+		Visibility:   *req.Repo.Visibility,
+		Stars:        int32(req.Repo.Stars),
+		Watches:      int32(req.Repo.Watches),
+		ForksCount:   int32(req.Repo.ForksCount),
+		IsArchived:   req.Repo.IsArchived,
+		HtmlUrl:      req.Repo.HtmlUrl,
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
 		PushedAt:     pushedAt,

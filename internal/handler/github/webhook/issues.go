@@ -112,8 +112,8 @@ func (h *WebhookHandler) WebhookIssues(w http.ResponseWriter, r *http.Request, b
 		IsClosed:          closed,
 		IsLocked:          req.Issue.IsLocked,
 		HtmlUrl:           req.Issue.HtmlUrl,
-		CreatedAt:         pgtype.Timestamptz{Time: req.Issue.CreatedAt},
-		UpdatedAt:         pgtype.Timestamptz{Time: req.Issue.UpdatedAt},
+		CreatedAt:         pgtype.Timestamptz{Time: req.Issue.CreatedAt, Valid: true},
+		UpdatedAt:         pgtype.Timestamptz{Time: req.Issue.UpdatedAt, Valid: true},
 		ClosedAt:          closedAt,
 	})
 	if err != nil {

@@ -1,0 +1,61 @@
+{
+    "action": "edited",
+    "repository": {
+        "id": 54321,
+        "name": "prolepsis",
+        "full_name": "shawnfrost25/prolepsis",
+        "private": false,
+        "fork": false,
+        "archived": false,
+        "visibility": "public",
+        "description": "A multi-source developer data ETL pipeline built with Go, PostgreSQL, and a Rust gRPC sidecar. Pre-fetches and normalizes profile metrics from GitHub, LinkedIn, Stack Overflow, LeetCode, etc., to provide instant SQL context for AI pipelines.",
+        "html_url": "https://github.com/shawnfrost25/prolepsis",
+        "language": "Go",
+        "default_branch": "main",
+        "created_at": "2026-09-04T07:43:23Z",
+        "updated_at": "2026-11-02T18:27:54Z",
+        "pushed_at": "2026-11-02T18:27:50Z",
+        "forks_count": 0,
+        "stargazers_count": 1,
+        "watchers_count": 1,
+        "license": {
+            "key": "mit",
+            "name": "MIT License",
+            "spdx_id": "MIT",
+            "node_id": "MDc6TGljZW5zZTEz",
+            "url": "https://api.github.com/licenses/mit",
+            "html_url": "https://api.github.com/licenses/mit",
+            "body": "MIT License"
+        },
+        "owner": {
+            "id": 12345,
+            "login": "shawnfrost25",
+            "type": "User"
+        },
+        "topics": [
+            "ai-context",
+            "chi",
+            "docker",
+            "etl",
+            "github",
+            "golang",
+            "grpc",
+            "hcl",
+            "open-tofu",
+            "pgx",
+            "pipeline",
+            "postgresql",
+            "redis",
+            "river",
+            "rust",
+            "sidecar",
+            "sqlc",
+            "stackoverflow"
+        ]
+    },
+    "sender": {
+        "login": "shawnfrost25",
+        "id": 12345,
+        "type": "User"
+    }
+}

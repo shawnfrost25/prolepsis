@@ -43,7 +43,7 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req webhook.Repository
+	var req webhook.Repo
 	err = sonic.Unmarshal(bodyBytes, &req)
 	if err != nil {
 		err = failure.Wrap("github.json.webhook.repository.unmarshal", err)
@@ -75,7 +75,7 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repoIDStr := strconv.FormatInt(req.ID, 10)
+	repoIDStr := strconv.FormatInt(req.Repository.ID, 10)
 
 	secret, err := h.RedisClient.Get(timeout, "oauth:github:webhook:secret:"+repoIDStr).Result()
 	if err != nil {
@@ -96,7 +96,7 @@ func (h *GitHubHandler) GitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := h.Queries.ExistGitHubRepo(timeout, req.ID)
+	exists, err := h.Queries.ExistGitHubRepo(timeout, req.Repository.ID)
 	if err != nil {
 		err = failure.Wrap("github.database.repository.existence_check", err)
 		errlog.Database(logger, w, "repository_existence_check", trace, err)

@@ -39,6 +39,7 @@ func (h *WebhookHandler) WebhookPush(w http.ResponseWriter, r *http.Request, bod
 			Str("code", "delivery_id_deduplication").
 			Msg("delivery id already exists")
 		lib.Pretty(w, http.StatusOK, nil)
+		return
 	}
 
 	var req GitHubPush
